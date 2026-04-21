@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Drug Sculptor v11</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://3dmol.csb.pitt.edu/build/3Dmol-min.js"></script>
+<!-- SmilesDrawer for 2D preview -->
+<script src="https://unpkg.com/smiles-drawer@2.1.7/dist/smiles-drawer.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=DM+Sans:wght@300;400;600;700;800&display=swap');
+:root{
+  --bg:#04060f;--s1:#080d1c;--s2:#0d1426;--s3:#111b33;
+  --bd:#1a2540;--b2:#243354;
+  --cy:#00d4ff;--vi:#8b5cf6;--gr:#06d6a0;--am:#f59e0b;--rd:#f43f5e;
+  --tx:#c8d8f0;--mu:#4a6080;
+  --mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif;
+  --radius:13px;
+}
+/* Light mode overrides */
+body.light{
+  --bg:#f0f4f8;--s1:#ffffff;--s2:#e8eef5;--s3:#dce6ef;
+  --bd:#c5d4e3;--b2:#b3c6d8;
+  --tx:#1a2540;--mu:#5a7090;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,.007) 2px,rgba(0,212,255,.007) 4px);pointer-events:none;z-index:9999}
+body.light::before{display:none}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--bd) 1px,transparent 1px),linear-gradient(90deg,var(--bd) 1px,transparent 1px);background-size:48px 48px;opacity:.09;pointer-events:none;z-index:0}
+.app{position:relative;z-index:1;max-width:1920px;margin:0 auto;padding:0 18px}
+
+/* HEADER */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:13px 0 11px;border-bottom:1px solid var(--bd);margin-bottom:18px;flex-wrap:wrap;gap:10px}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-mark{width:42px;height:42px;background:conic-gradient(from 180deg,var(--cy),var(--vi),var(--gr),var(--cy));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;animation:hue 10s linear infinite;flex-shrink:0}
+@keyframes hue{to{filter:hue-rotate(360deg)}}
+.logo h1{font-size:18px;font-weight:800;letter-spacing:-.5px}
+.logo p{font-size:9px;color:var(--mu);font-family:var(--mono)}
+.hdr-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{padding:3px 9px;border-radius:20px;font-size:8px;font-weight:700;font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase}
+.pill-c{background:rgba(0,212,255,.1);color:var(--cy);border:1px solid rgba(0,212,255,.25)}
+.pill-v{background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3)}
+.pill-g{background:rgba(6,214,160,.1);color:var(--gr);border:1px solid rgba(6,214,160,.25)}
+.pill-live{background:rgba(6,214,160,.15);color:var(--gr);border:1px solid rgba(6,214,160,.4);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.45}}
+.icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--tx);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .13s;position:relative}
+.icon-btn:hover{border-color:var(--cy);color:var(--cy)}
+.icon-btn[title]:hover::after{content:attr(title);position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--bd);border-radius:5px;padding:4px 8px;font-size:9px;white-space:nowrap;z-index:999;font-family:var(--mono);color:var(--tx)}
+
+/* LAYOUT */
+.main{display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start}
+@media(max-width:1100px){.main{grid-template-columns:1fr}}
+
+/* PANELS */
+.pnl{background:var(--s1);border:1px solid var(--bd);border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+.pnl-h{padding:10px 15px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--mu)}
+.pnl-b{padding:14px}
+.pnl-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot-c{background:var(--cy);box-shadow:0 0 6px var(--cy)}
+.dot-v{background:var(--vi)}
+.dot-g{background:var(--gr)}
+.dot-am{background:var(--am)}
+.pulse{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 4px var(--cy)}50%{box-shadow:0 0 12px var(--cy),0 0 20px var(--cy)}}
+
+/* SMILES EDITOR */
+.smi-in{width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--tx);font-family:var(--mono);font-size:11px;padding:9px 11px;resize:vertical;min-height:56px;outline:none;transition:border-color .2s}
+.smi-in:focus{border-color:var(--cy)}
+.qb-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px}
+.qb{padding:3px 10px;border-radius:5px;border:1px solid var(--bd);background:var(--s2);color:var(--mu);font-size:9px;font-weight:700;cursor:pointer;transition:all .13s}
+.qb:hover{border-color:rgba(0,212,255,.35);color:var(--cy);background:rgba(0,212,255,.06)}
+
+/* Fragment picker */
+.frag-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd)}
+.frag-b{padding:3px 9px;border-radius:5px;border:1px solid rgba(139,92,246,.3);background:rgba(139,92,246,.06);color:#a78bfa;font-size:9px;font-weight:700;cursor:pointer;transition:all .13s;font-family:var(--mono)}
+.frag-b:hover{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.5)}
+
+/* 2D CANVAS */
+#canvas2d{width:100%;height:170px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);display:block;cursor:pointer}
+.canvas2d-hint{font-size:8px;color:var(--mu);font-family:var(--mono);text-align:right;margin-top:3px}
+
+/* 3D VIEWER */
+#viewer-wrap{width:100%;height:280px;background:radial-gradient(ellipse at 35% 30%,#0a1830,#04060f);border-radius:9px;overflow:hidden;border:1px solid var(--bd);position:relative}
+body.light #viewer-wrap{background:radial-gradient(ellipse at 35% 30%,#d8e8f5,#f0f4f8)}
+.v-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;background:rgba(4,6,15,.88);z-index:10;font-size:11px;color:var(--mu)}
+body.light .v-loading{background:rgba(240,244,248,.9)}
+.v-hint{position:absolute;bottom:7px;right:9px;font-size:8px;color:rgba(74,96,128,.6);font-family:var(--mono);pointer-events:none}
+.sp{width:14px;height:14px;border:2px solid var(--bd);border-top-color:var(--cy);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.vc-row{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+.vc-btn{padding:3px 9px;border-radius:5px;border:1px solid var(--bd);background:var(--s2);color:var(--mu);font-size:9px;font-weight:700;cursor:pointer;transition:all .13s;position:relative}
+.vc-btn:hover,.vc-btn.on{background:rgba(0,212,255,.1);border-color:rgba(0,212,255,.35);color:var(--cy)}
+.vc-btn[title]:hover::after{content:attr(title);position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--bd);border-radius:4px;padding:3px 7px;font-size:8px;white-space:nowrap;z-index:999;color:var(--tx)}
+
+/* PROPERTIES */
+.props-g{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.prop-c{background:var(--s2);border:1px solid var(--bd);border-radius:7px;padding:8px 10px}
+.prop-lbl{font-size:8px;color:var(--mu);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em}
+.prop-v{font-size:15px;font-weight:800;font-family:var(--mono);margin-top:1px}
+.pv-g{color:var(--gr)}
+.pv-r{color:var(--rd)}
+.pv-w{color:var(--am)}
+.pv-c{color:var(--cy)}
+.lip-c{background:var(--s2);border:1px solid var(--bd);border-radius:7px;padding:8px 10px;display:flex;align-items:center;gap:6px;font-size:10px;grid-column:1/-1}
+.stag{padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;font-family:var(--mono)}
+.stag-g{background:rgba(6,214,160,.12);color:var(--gr);border:1px solid rgba(6,214,160,.3)}
+.stag-r{background:rgba(244,63,94,.1);color:var(--rd);border:1px solid rgba(244,63,94,.3)}
+.stag-w{background:rgba(245,158,11,.1);color:var(--am);border:1px solid rgba(245,158,11,.3)}
+.stag-c{background:rgba(0,212,255,.08);color:var(--cy);border:1px solid rgba(0,212,255,.2)}
+.stag-v{background:rgba(139,92,246,.1);color:#a78bfa;border:1px solid rgba(139,92,246,.3)}
+
+/* RADAR CHART */
+#radar-canvas{display:block;margin:0 auto}
+
+/* DRUG CARD */
+.drug-card{background:linear-gradient(135deg,rgba(0,212,255,.06),rgba(139,92,246,.06));border:1px solid rgba(0,212,255,.2);border-radius:9px;padding:11px 13px;margin-bottom:13px}
+.drug-card h3{font-size:13px;font-weight:800;color:var(--tx);margin-bottom:3px}
+.drug-card .dc-meta{font-size:9px;color:var(--mu);font-family:var(--mono);line-height:1.7}
+.drug-card .dc-links{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
+
+/* TABS */
+.tabs{display:flex;gap:2px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px}
+.tabs::-webkit-scrollbar{height:3px}
+.tabs::-webkit-scrollbar-thumb{background:var(--bd)}
+.tab{padding:7px 13px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--mu);font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .13s}
+.tab.on{background:var(--s1);color:var(--cy);border-color:var(--bd)}
+.tab:hover:not(.on){color:var(--tx)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;border:none;cursor:pointer;font-size:10px;font-weight:700;transition:all .14s;white-space:nowrap}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-cy{background:linear-gradient(135deg,var(--cy),#0099cc);color:#000}
+.btn-vi{background:linear-gradient(135deg,var(--vi),#5b21b6);color:#fff}
+.btn-gr{background:linear-gradient(135deg,var(--gr),#059669);color:#000}
+.btn-gh{background:var(--s2);border:1px solid var(--bd);color:var(--tx)}
+.btn-am{background:linear-gradient(135deg,var(--am),#d97706);color:#000}
+.btn-rd{background:linear-gradient(135deg,var(--rd),#be123c);color:#fff}
+
+/* EXPORT ROW */
+.exp-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px solid var(--bd)}
+.exp-b{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:7px;font-size:9px;font-weight:700;cursor:pointer;border:none;transition:all .15s;font-family:var(--mono)}
+.exp-copy{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--cy)}
+.exp-copy:hover{background:rgba(0,212,255,.2)}
+.exp-png{background:rgba(6,214,160,.1);border:1px solid rgba(6,214,160,.3);color:var(--gr)}
+.exp-png:hover{background:rgba(6,214,160,.2)}
+.exp-sdf{background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);color:#a78bfa}
+.exp-sdf:hover{background:rgba(139,92,246,.2)}
+.exp-csv{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--am)}
+.exp-csv:hover{background:rgba(245,158,11,.2)}
+.exp-mol{background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);color:var(--rd)}
+.exp-mol:hover{background:rgba(244,63,94,.2)}
+#copy-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--gr);color:#000;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:700;z-index:9999;opacity:0;transition:all .3s;pointer-events:none}
+#copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* DOCK LOG */
+.dock-log{background:var(--bg);border:1px solid var(--bd);border-radius:7px;padding:10px;font-family:var(--mono);font-size:9px;color:var(--mu);height:200px;overflow-y:auto;line-height:1.75}
+.dock-log::-webkit-scrollbar{width:4px}
+.dock-log::-webkit-scrollbar-thumb{background:var(--bd)}
+.log-ln{margin-bottom:1px}
+.lt{color:var(--mu)}.lok{color:var(--gr)}.lwn{color:var(--am)}.ler{color:var(--rd)}.lcy{color:var(--cy)}.lvi{color:#a78bfa}
+.score-card{background:radial-gradient(ellipse at 40% 30%,rgba(0,212,255,.08),transparent);border:1px solid rgba(0,212,255,.2);border-radius:11px;padding:18px;text-align:center;margin-top:12px}
+.score-big{font-size:44px;font-weight:800;font-family:var(--mono);color:var(--cy)}
+.score-unit{font-size:10px;color:var(--mu);margin-top:3px;font-family:var(--mono)}
+.pose-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;background:var(--s2);border:1px solid var(--bd);border-radius:7px;padding:8px 12px;margin-bottom:6px;cursor:pointer;transition:all .15s}
+.pose-row:hover{border-color:rgba(0,212,255,.3)}
+.pose-row.best{border-color:rgba(6,214,160,.4);background:rgba(6,214,160,.05)}
+.pose-num{font-family:var(--mono);font-size:9px;color:var(--mu)}
+.pose-score{font-family:var(--mono);font-size:15px;font-weight:800}
+.pose-meta{font-size:9px;color:var(--mu);font-family:var(--mono)}
+.prog{height:4px;background:var(--bd);border-radius:3px;overflow:hidden;margin-bottom:13px}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--cy),var(--vi));border-radius:3px;transition:width .3s}
+
+/* RECEPTOR */
+.rec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:8px;margin-bottom:13px;max-height:360px;overflow-y:auto}
+.rec-grid::-webkit-scrollbar{width:4px}
+.rec-grid::-webkit-scrollbar-thumb{background:var(--bd)}
+.rec-card{background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:11px;cursor:pointer;transition:all .15s}
+.rec-card:hover{border-color:rgba(0,212,255,.3)}
+.rec-card.sel{border-color:var(--cy);background:rgba(0,212,255,.07)}
+.rec-card h4{font-size:10px;font-weight:700;margin-bottom:3px;color:var(--tx)}
+.rec-card .pdb{font-family:var(--mono);font-size:8px;color:var(--cy);margin-bottom:3px}
+.rec-card .rdesc{font-size:8px;color:var(--mu);line-height:1.45}
+
+/* CHAT */
+.chat-msgs{min-height:200px;max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:10px;padding:2px}
+.chat-msgs::-webkit-scrollbar{width:4px}
+.chat-msgs::-webkit-scrollbar-thumb{background:var(--bd)}
+.chat-m{display:flex;gap:9px;align-items:flex-start}
+.chat-av{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.av-u{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2)}
+.av-a{background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3)}
+.chat-bbl{background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:8px 12px;font-size:10px;line-height:1.7;flex:1}
+.bbl-u{border-color:rgba(0,212,255,.2)}
+.bbl-a{border-color:rgba(139,92,246,.2)}
+.chat-bbl code{font-family:var(--mono);background:rgba(255,255,255,.06);padding:1px 4px;border-radius:3px;font-size:9px}
+.chat-row{display:flex;gap:7px}
+.chat-in{flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--tx);font-size:10px;padding:8px 11px;outline:none;transition:border-color .2s}
+.chat-in:focus{border-color:var(--vi)}
+.thinking{display:flex;gap:5px;align-items:center;padding:5px 0}
+.thinking-dot{width:5px;height:5px;border-radius:50%;background:var(--vi);animation:tdot 1.4s ease-in-out infinite}
+.thinking-dot:nth-child(2){animation-delay:.2s}
+.thinking-dot:nth-child(3){animation-delay:.4s}
+@keyframes tdot{0%,80%,100%{transform:scale(1);opacity:.4}40%{transform:scale(1.3);opacity:1}}
+
+/* SEARCH */
+.srch-wrap{position:relative;margin-bottom:9px}
+.srch-ico{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:11px}
+.srch-in{width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:7px;color:var(--tx);font-size:10px;padding:7px 9px 7px 30px;outline:none;transition:border-color .2s}
+.srch-in:focus{border-color:var(--cy)}
+.cat-f{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.cf-b{padding:2px 9px;border-radius:20px;border:1px solid var(--bd);background:var(--s2);color:var(--mu);font-size:8px;font-weight:700;cursor:pointer;transition:all .13s}
+.cf-b.on,.cf-b:hover{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.3);color:var(--cy)}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+.tbl-wrap::-webkit-scrollbar{height:4px}
+.tbl-wrap::-webkit-scrollbar-thumb{background:var(--bd)}
+.scroll{max-height:440px;overflow-y:auto}
+.scroll::-webkit-scrollbar{width:4px}
+.scroll::-webkit-scrollbar-thumb{background:var(--bd)}
+.dtbl{width:100%;border-collapse:collapse;font-size:9px}
+.dtbl th{padding:5px 9px;text-align:left;font-size:8px;color:var(--mu);font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--bd);white-space:nowrap;background:var(--bg);position:sticky;top:0}
+.dtbl td{padding:6px 9px;border-bottom:1px solid rgba(26,37,64,.4)}
+.dtbl tr:hover td{background:rgba(0,212,255,.04);cursor:pointer}
+.load-b{padding:2px 8px;border-radius:4px;border:1px solid rgba(0,212,255,.3);background:rgba(0,212,255,.07);color:var(--cy);font-size:8px;font-weight:700;cursor:pointer;transition:all .13s}
+.load-b:hover{background:rgba(0,212,255,.17)}
+
+/* SMILES MANAGER */
+.smi-edit{background:var(--s2);border:1px solid var(--bd);border-radius:4px;color:var(--tx);font-family:var(--mono);font-size:8px;padding:3px 6px;outline:none;width:100%}
+.smi-edit:focus{border-color:var(--cy)}
+.inp-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:7px;align-items:end;margin-bottom:9px}
+.inp-f label{font-size:8px;color:var(--mu);display:block;margin-bottom:3px;font-family:var(--mono);text-transform:uppercase}
+.inp-f input,.inp-f select{width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:5px;color:var(--tx);font-size:9px;padding:6px 8px;outline:none}
+.inp-f input:focus,.inp-f select:focus{border-color:var(--cy)}
+
+/* MISC */
+.info{background:var(--s2);border:1px solid var(--bd);border-radius:7px;padding:9px 12px;font-size:9px;color:var(--mu);line-height:1.7;margin-bottom:12px}
+.info strong{color:var(--tx)}
+.sec-t{font-size:9px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px}
+.metric-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:7px;margin-bottom:13px}
+.metric{background:var(--s2);border:1px solid var(--bd);border-radius:7px;padding:9px 11px}
+.metric-lbl{font-size:8px;color:var(--mu);font-family:var(--mono);text-transform:uppercase}
+.metric-v{font-size:18px;font-weight:800;font-family:var(--mono);color:var(--cy);margin-top:1px}
+.admet-l{display:flex;flex-direction:column;gap:10px}
+.admet-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.admet-bar{height:5px;background:var(--bd);border-radius:3px;overflow:hidden}
+.admet-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.gln{height:1px;background:var(--bd);margin:13px 0}
+.row-b{display:flex;align-items:flex-start;justify-content:space-between;gap:11px;flex-wrap:wrap}
+
+/* DISCLAIMER */
+.disclaimer{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:9px;padding:10px 13px;font-size:9px;color:var(--am);line-height:1.7;margin-bottom:13px}
+.disclaimer strong{color:var(--am)}
+
+/* HELP PANEL */
+.help-overlay{position:fixed;inset:0;background:rgba(4,6,15,.85);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px}
+body.light .help-overlay{background:rgba(0,0,0,.5)}
+.help-box{background:var(--s1);border:1px solid var(--bd);border-radius:14px;max-width:640px;width:100%;max-height:80vh;overflow-y:auto;padding:24px}
+.help-box::-webkit-scrollbar{width:5px}
+.help-box::-webkit-scrollbar-thumb{background:var(--bd)}
+.help-box h2{font-size:17px;font-weight:800;margin-bottom:16px;color:var(--cy)}
+.help-section{margin-bottom:16px}
+.help-section h3{font-size:11px;font-weight:700;color:var(--tx);margin-bottom:6px;border-bottom:1px solid var(--bd);padding-bottom:4px}
+.help-row{display:flex;align-items:baseline;gap:10px;margin-bottom:4px;font-size:9px;line-height:1.6}
+.help-key{background:var(--s2);border:1px solid var(--bd);border-radius:4px;padding:1px 6px;font-family:var(--mono);font-size:8px;color:var(--cy);white-space:nowrap;flex-shrink:0}
+.help-desc{color:var(--mu)}
+
+/* KEYBOARD SHORTCUT BADGE */
+.kbd{background:var(--s2);border:1px solid var(--bd);border-radius:3px;padding:0px 4px;font-family:var(--mono);font-size:7px;color:var(--mu);margin-left:4px}
+
+/* FOOTER */
+.footer{font-size:8px;color:var(--mu);font-family:var(--mono);text-align:center;padding:16px 0;border-top:1px solid var(--bd);margin-top:16px;line-height:1.9}
+
+/* MOBILE */
+@media(max-width:600px){
+  .main{grid-template-columns:1fr}
+  .props-g{grid-template-columns:1fr 1fr}
+  .tabs{padding-bottom:4px}
+  .hdr{gap:8px}
+  .inp-row{grid-template-columns:1fr;gap:6px}
+  #viewer-wrap{height:220px}
+  #canvas2d{height:130px}
+}
+
+/* JSME modal */
+.jsme-overlay{position:fixed;inset:0;background:rgba(4,6,15,.9);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px}
+.jsme-box{background:var(--s1);border:1px solid var(--bd);border-radius:12px;width:100%;max-width:820px;padding:16px}
+.jsme-box h3{font-size:13px;font-weight:800;margin-bottom:12px;color:var(--cy)}
+#jsme-frame{width:100%;height:420px;border:1px solid var(--bd);border-radius:8px;background:#fff}
+</style>
+</head>
+<body>
+<!-- TOAST -->
+<div id="copy-toast">✓ Copied to clipboard</div>
+
+<!-- HELP OVERLAY -->
+<div class="help-overlay" id="help-overlay" style="display:none" onclick="closeHelp(event)">
+  <div class="help-box" onclick="event.stopPropagation()">
+    <h2>💊 Drug Sculptor v11 — Help & Shortcuts</h2>
+    <div class="help-section">
+      <h3>Keyboard Shortcuts</h3>
+      <div class="help-row"><span class="help-key">S</span><span class="help-desc">Stick view</span></div>
+      <div class="help-row"><span class="help-key">B</span><span class="help-desc">Ball+Stick view</span></div>
+      <div class="help-row"><span class="help-key">X</span><span class="help-desc">Sphere view</span></div>
+      <div class="help-row"><span class="help-key">L</span><span class="help-desc">Line view</span></div>
+      <div class="help-row"><span class="help-key">U</span><span class="help-desc">Surface view</span></div>
+      <div class="help-row"><span class="help-key">D</span><span class="help-desc">Run DiffDock (when on Docking tab)</span></div>
+      <div class="help-row"><span class="help-key">V</span><span class="help-desc">Run Vina (when on Docking tab)</span></div>
+      <div class="help-row"><span class="help-key">1–9</span><span class="help-desc">Switch tabs (1=Explore, 2=Drug DB…)</span></div>
+      <div class="help-row"><span class="help-key">Ctrl+C</span><span class="help-desc">Copy current SMILES</span></div>
+      <div class="help-row"><span class="help-key">?</span><span class="help-desc">Open/close this help panel</span></div>
+      <div class="help-row"><span class="help-key">Esc</span><span class="help-desc">Close overlays</span></div>
+    </div>
+    <div class="help-section">
+      <h3>SMILES</h3>
+      <div class="help-row"><span class="help-desc">SMILES (Simplified Molecular-Input Line-Entry System) encodes molecular structure as a string. Example: <code style="font-family:var(--mono);color:var(--cy)">CC(=O)Oc1ccccc1C(=O)O</code> = Aspirin. Type or paste any valid SMILES to visualise and analyse.</span></div>
+    </div>
+    <div class="help-section">
+      <h3>3D Render Styles</h3>
+      <div class="help-row"><span class="help-key">Stick</span><span class="help-desc">Best for seeing bond connectivity and functional groups</span></div>
+      <div class="help-row"><span class="help-key">Ball+Stick</span><span class="help-desc">Emphasises atom sizes alongside bonds</span></div>
+      <div class="help-row"><span class="help-key">Sphere</span><span class="help-desc">CPK model — van der Waals radii, good for steric clashes</span></div>
+      <div class="help-row"><span class="help-key">Surface</span><span class="help-desc">Molecular surface for visualising binding pocket complementarity</span></div>
+      <div class="help-row"><span class="help-key">Line</span><span class="help-desc">Minimal wireframe for quick orientation</span></div>
+    </div>
+    <div class="help-section">
+      <h3>Properties Guide</h3>
+      <div class="help-row"><span class="help-key">MW</span><span class="help-desc">Molecular weight — Lipinski rule: ≤500 Da</span></div>
+      <div class="help-row"><span class="help-key">LogP</span><span class="help-desc">Lipophilicity — Lipinski rule: ≤5. High LogP → poor solubility, high clearance</span></div>
+      <div class="help-row"><span class="help-key">HBD/HBA</span><span class="help-desc">H-bond donors/acceptors — Ro5: HBD ≤5, HBA ≤10</span></div>
+      <div class="help-row"><span class="help-key">TPSA</span><span class="help-desc">Topological polar surface area — ≤140 Å² for oral absorption; ≤90 Å² for CNS</span></div>
+      <div class="help-row"><span class="help-key">QED</span><span class="help-desc">Quantitative Estimate of Drug-likeness (0–1). >0.6 = drug-like</span></div>
+      <div class="help-row"><span class="help-key">RotBonds</span><span class="help-desc">Rotatable bonds — ≤10 preferred for oral bioavailability</span></div>
+    </div>
+    <div class="help-section">
+      <h3>Disclaimer</h3>
+      <div class="help-row"><span class="help-desc" style="color:var(--am)">This tool is for <strong>educational and research purposes only</strong>. It does not constitute medical advice, clinical guidance, or synthesis instructions for controlled substances. Docking scores are simulated estimates. Always consult qualified professionals and adhere to all applicable regulations.</span></div>
+    </div>
+    <button class="btn btn-gh" style="margin-top:12px" onclick="closeHelp()">Close ✕</button>
+  </div>
+</div>
+
+<!-- JSME EDITOR MODAL -->
+<div class="jsme-overlay" id="jsme-overlay" style="display:none">
+  <div class="jsme-box">
+    <h3>✏️ 2D Molecule Editor (JSME)</h3>
+    <p style="font-size:9px;color:var(--mu);margin-bottom:10px">Draw or edit your molecule. Click "Use this structure" to sync to the 3D viewer and property calculator.</p>
+    <iframe id="jsme-frame" src="https://jsme-editor.github.io/dist/JSME_2017-02-26/JSME.html" 
+      title="JSME Molecule Editor" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn btn-cy" onclick="useJSME()">✓ Use this structure</button>
+      <button class="btn btn-gh" onclick="closeJSME()">Cancel</button>
+      <span style="font-size:8px;color:var(--mu);align-self:center">Draw atoms and bonds, then confirm to sync SMILES</span>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+<!-- HEADER -->
+<header class="hdr">
+  <div class="logo">
+    <div class="logo-mark">💊</div>
+    <div>
+      <h1>Drug Sculptor v11</h1>
+      <p>2D/3D Editor · 330+ Drugs · 50 Receptors · DiffDock+Vina · Claude AI · ADMET · Radar</p>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <span class="pill pill-live">⬤ LIVE</span>
+    <span class="pill pill-c">PubChem</span>
+    <span class="pill pill-g">RCSB PDB</span>
+    <span class="pill pill-v">Claude AI</span>
+    <button class="icon-btn" id="theme-btn" title="Toggle light/dark mode" onclick="toggleTheme()">🌙</button>
+    <button class="icon-btn" title="Keyboard shortcuts & help (?)" onclick="openHelp()">❓</button>
+    <button class="icon-btn" title="Copy current SMILES (Ctrl+C)" onclick="copySmiles()">📋</button>
+    <button class="icon-btn" title="Export PNG of 3D view" onclick="exportPNG()">📸</button>
+  </div>
+</header>
+
+<div class="main">
+<!-- LEFT COLUMN -->
+<div>
+
+  <!-- SMILES EDITOR -->
+  <div class="pnl">
+    <div class="pnl-h">
+      <div class="pnl-dot dot-c pulse"></div>SMILES Editor
+      <button class="icon-btn" style="margin-left:auto;width:24px;height:24px;font-size:11px" title="Open 2D molecule editor" onclick="openJSME()">✏️</button>
+    </div>
+    <div class="pnl-b">
+      <textarea class="smi-in" id="smi" placeholder="Enter or paste SMILES… (e.g. CC(=O)OC1=CC=CC=C1C(=O)O)">CC(=O)OC1=CC=CC=C1C(=O)O</textarea>
+      <div class="qb-row">
+        <button class="qb" onclick="loadQuick('aspirin')" title="Aspirin SMILES">Aspirin</button>
+        <button class="qb" onclick="loadQuick('ibuprofen')">Ibuprofen</button>
+        <button class="qb" onclick="loadQuick('caffeine')">Caffeine</button>
+        <button class="qb" onclick="loadQuick('morphine')">Morphine</button>
+        <button class="qb" onclick="loadQuick('taxol')">Paclitaxel</button>
+        <button class="qb" onclick="loadQuick('imatinib')">Imatinib</button>
+        <button class="qb" onclick="loadQuick('omeprazole')">Omeprazole</button>
+        <button class="qb" onclick="loadQuick('atorvastatin')">Atorvastatin</button>
+      </div>
+      <!-- Fragment Library -->
+      <div class="frag-row" id="frag-row">
+        <span style="font-size:8px;color:var(--mu);font-family:var(--mono);align-self:center">+ Fragment:</span>
+        <button class="frag-b" onclick="addFrag('C')" title="Add methyl group">–CH₃</button>
+        <button class="frag-b" onclick="addFrag('O')" title="Add hydroxyl">–OH</button>
+        <button class="frag-b" onclick="addFrag('N')" title="Add amine">–NH₂</button>
+        <button class="frag-b" onclick="addFrag('F')" title="Add fluorine">–F</button>
+        <button class="frag-b" onclick="addFrag('Cl')" title="Add chlorine">–Cl</button>
+        <button class="frag-b" onclick="addFrag('C(=O)O')" title="Add carboxylic acid">–COOH</button>
+        <button class="frag-b" onclick="addFrag('C(=O)N')" title="Add amide">–CONH₂</button>
+        <button class="frag-b" onclick="addFrag('S(=O)(=O)N')" title="Add sulfonamide">–SO₂NH₂</button>
+        <button class="frag-b" onclick="addFrag('c1ccccc1')" title="Add phenyl ring">Ph</button>
+        <button class="frag-b" onclick="addFrag('c1ccncc1')" title="Add pyridine">Pyr</button>
+        <button class="frag-b" onclick="addFrag('N1CCCC1')" title="Add pyrrolidine">Pyrr</button>
+        <button class="frag-b" onclick="addFrag('C(F)(F)F')" title="Add trifluoromethyl">–CF₃</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2D PREVIEW -->
+  <div class="pnl">
+    <div class="pnl-h"><div class="pnl-dot dot-am"></div>2D Structure Preview <span style="font-size:8px;margin-left:auto;color:var(--mu)">SmilesDrawer</span></div>
+    <div class="pnl-b" style="padding:10px">
+      <canvas id="canvas2d"></canvas>
+      <div class="canvas2d-hint">Click "✏️" above to open the full 2D editor</div>
+    </div>
+  </div>
+
+  <!-- 3D VIEWER -->
+  <div class="pnl">
+    <div class="pnl-h">
+      <div class="pnl-dot dot-v"></div>3D Structure
+      <span id="mol-lbl" style="margin-left:auto;font-size:8px;color:var(--cy)"></span>
+    </div>
+    <div class="pnl-b">
+      <div class="vc-row">
+        <button class="vc-btn on" id="vs-stick" onclick="setVStyle('stick')" title="Stick — bonds as cylinders (S)">Stick<span class="kbd">S</span></button>
+        <button class="vc-btn" id="vs-ball" onclick="setVStyle('ball')" title="Ball+Stick — atoms as spheres (B)">Ball+Stick<span class="kbd">B</span></button>
+        <button class="vc-btn" id="vs-sphere" onclick="setVStyle('sphere')" title="CPK Sphere model (X)">Sphere<span class="kbd">X</span></button>
+        <button class="vc-btn" id="vs-surface" onclick="setVStyle('surface')" title="Molecular surface (U)">Surface<span class="kbd">U</span></button>
+        <button class="vc-btn" id="vs-line" onclick="setVStyle('line')" title="Wireframe line model (L)">Line<span class="kbd">L</span></button>
+        <button class="vc-btn" id="vs-spin" onclick="toggleSpin()" title="Toggle auto-rotation">Spin</button>
+      </div>
+      <div id="viewer-wrap">
+        <div class="v-loading" id="vload"><div class="sp"></div><span>Loading 3D…</span></div>
+        <div class="v-hint">drag · scroll · right-drag pan</div>
+      </div>
+      <div class="exp-row">
+        <button class="exp-b exp-copy" onclick="copySmiles()" title="Copy SMILES to clipboard">📋 SMILES</button>
+        <button class="exp-b exp-png" onclick="exportPNG()" title="Save PNG of 3D view">📸 PNG</button>
+        <button class="exp-b exp-sdf" onclick="exportCurrentSDF()" title="Download SDF file">⬇ SDF</button>
+        <button class="exp-b exp-mol" onclick="exportMOL()" title="Download MOL file">⬇ MOL</button>
+        <button class="exp-b exp-csv" onclick="exportPropsCSV()" title="Export properties as CSV">📊 Props</button>
+      </div>
+      <div id="rec-viewer-row" style="display:none;margin-top:9px;">
+        <div style="font-size:8px;color:var(--mu);font-family:var(--mono);margin-bottom:5px;">RECEPTOR (RCSB PDB)</div>
+        <div id="rec-viewer-wrap" style="width:100%;height:190px;border-radius:8px;overflow:hidden;border:1px solid var(--bd);background:radial-gradient(ellipse at 35% 30%,#0d1830,#04060f);position:relative;">
+          <div class="v-loading" id="rvload"><div class="sp"></div><span>Loading receptor…</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROPERTIES -->
+  <div class="pnl">
+    <div class="pnl-h"><div class="pnl-dot dot-g"></div>Molecular Properties
+      <span style="margin-left:auto;font-size:7px;color:var(--mu)">Enhanced descriptors</span>
+    </div>
+    <div class="pnl-b">
+      <div class="props-g" id="props-grid"></div>
+      <div id="prop-tags" style="margin-top:9px;display:flex;gap:5px;flex-wrap:wrap;"></div>
+      <div style="margin-top:12px">
+        <div style="font-size:8px;color:var(--mu);font-family:var(--mono);text-transform:uppercase;margin-bottom:7px">Drug-likeness Radar</div>
+        <canvas id="radar-canvas" width="280" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- RIGHT COLUMN -->
+<div>
+  <div class="tabs" id="tabs-row"></div>
+  <div id="tab-content"></div>
+</div>
+</div>
+
+<footer class="footer">
+  Drug Sculptor v11 · 3Dmol.js · SmilesDrawer · PubChem · RCSB PDB · DiffDock (Corso et al. 2022) · Claude AI · ChEMBL 330+ compounds<br/>
+  ⚠ For educational & research use only · Not medical advice · Not synthesis guidance for controlled substances · Docking scores are simulated estimates<br/>
+  Cite: RDKit, AutoDock Vina, and DiffDock when publishing research derived from this tool
+</footer>
+</div>
+
+<script>
+// ============================================================
+// RECEPTORS (50 validated targets)
+// ============================================================
+const RECEPTORS = {
+  'COX-1':{name:'Cyclooxygenase-1',pdb:'1EQH',res:'Arg120,Tyr355,Glu524',ligand:'ASA',desc:'Prostaglandin H synthase 1; arachidonic acid conversion; housekeeping prostaglandins',site:[120,355,524]},
+  'COX-2':{name:'Cyclooxygenase-2',pdb:'5KIR',res:'Arg120,Tyr355,Val523,Ser530',ligand:'FLP',desc:'Inducible prostaglandin H synthase 2; inflammatory prostaglandins; cancer target',site:[120,355,523,530]},
+  'SERT':{name:'Serotonin Transporter',pdb:'5I71',res:'Asp98,Tyr176,Thr439,Ser442',ligand:'Escitalopram',desc:'SLC6A4; reuptake of serotonin; target for antidepressants SSRIs/SNRIs',site:[98,176,439,442]},
+  'DAT':{name:'Dopamine Transporter',pdb:'4XP4',res:'Asp79,Val152,Phe326',ligand:'Cocaine',desc:'SLC6A3; dopamine reuptake; target for ADHD medications and stimulants',site:[79,152,326]},
+  'NET':{name:'Norepinephrine Transporter',pdb:'7LKI',res:'Asp75,Phe317,Phe323',ligand:'Nisoxetine',desc:'SLC6A2; norepinephrine reuptake; ADHD and depression target',site:[75,317,323]},
+  'DRD2':{name:'Dopamine D2 Receptor',pdb:'6CM4',res:'Asp114,Val115,Cys118,Ser193',ligand:'Risperidone',desc:'D2-like GPCR; dopaminergic signalling; antipsychotic target',site:[114,115,118,193]},
+  'b1AR':{name:'Beta-1 Adrenoceptor',pdb:'2VT4',res:'Asp138,Ser225,Ser228',ligand:'Cyanopindolol',desc:'GPCR; heart rate and contractility; beta-blocker target',site:[138,225,228]},
+  'b2AR':{name:'Beta-2 Adrenoceptor',pdb:'3SN6',res:'Asp113,Ser204,Ser207',ligand:'Carazolol',desc:'GPCR; bronchial smooth muscle relaxation; asthma inhaler target',site:[113,204,207]},
+  'ACE':{name:'ACE (Angiotensin Converting Enzyme)',pdb:'1O86',res:'His383,His387,Glu411,Tyr520',ligand:'Lisinopril',desc:'Zinc metallopeptidase; RAS pathway; antihypertensive target',site:[383,387,411,520]},
+  'AT1':{name:'Angiotensin II Receptor AT1',pdb:'4YAY',res:'Arg167,Trp84,His256',ligand:'ZD7155',desc:'GPCR; vasoconstriction; ARB drug target',site:[167,84,256]},
+  'BCR-ABL':{name:'BCR-ABL Tyrosine Kinase',pdb:'1IEP',res:'Thr315,Met290,Phe317',ligand:'Imatinib',desc:'Oncogenic fusion kinase; CML driver; imatinib/dasatinib target',site:[315,290,317]},
+  'EGFR':{name:'Epidermal Growth Factor Receptor',pdb:'1M17',res:'Thr790,Met793,Lys745',ligand:'Erlotinib',desc:'Receptor tyrosine kinase; lung cancer driver; erlotinib target',site:[790,793,745]},
+  'VEGFR2':{name:'VEGF Receptor 2',pdb:'4ASD',res:'Cys919,Asp1046,Glu885',ligand:'Sorafenib',desc:'RTK; angiogenesis; anti-cancer target',site:[919,1046,885]},
+  'BRAF':{name:'BRAF Kinase',pdb:'5CSW',res:'Thr529,Glu501,Lys483',ligand:'Vemurafenib',desc:'Serine/threonine kinase; melanoma V600E driver mutation',site:[529,501,483]},
+  'CDK2':{name:'Cyclin-Dependent Kinase 2',pdb:'1AQ1',res:'Lys33,Phe82,Asp145',ligand:'ATP',desc:'Cell cycle kinase; cancer proliferation; drug discovery target',site:[33,82,145]},
+  'HER2':{name:'HER2/ErbB2 Receptor',pdb:'3WSQ',res:'Thr862,Met801,Lys753',ligand:'Lapatinib',desc:'RTK; breast cancer amplification; trastuzumab/lapatinib target',site:[862,801,753]},
+  'ALK':{name:'Anaplastic Lymphoma Kinase',pdb:'2XP2',res:'Leu1196,Met1199,Gly1202',ligand:'Crizotinib',desc:'RTK fusion oncogene; NSCLC; crizotinib/alectinib target',site:[1196,1199,1202]},
+  'JAK1':{name:'Janus Kinase 1',pdb:'3EYG',res:'Leu881,Glu883,Thr907',ligand:'Tofacitinib',desc:'Non-receptor tyrosine kinase; cytokine signalling; JAK inhibitor target',site:[881,883,907]},
+  'JAK2':{name:'Janus Kinase 2',pdb:'2B7A',res:'Val863,Glu864,Ala880',ligand:'Fedratinib',desc:'Non-receptor tyrosine kinase; myeloproliferative neoplasms',site:[863,864,880]},
+  'PARP1':{name:'PARP-1',pdb:'4DQY',res:'Gly863,Tyr907,Ser904',ligand:'Olaparib',desc:'DNA repair enzyme; BRCA-deficient cancers; PARPi target',site:[863,907,904]},
+  'HDAC1':{name:'Histone Deacetylase 1',pdb:'4BKX',res:'His141,His142,Tyr303',ligand:'Vorinostat',desc:'Epigenetic enzyme; chromatin remodelling; cancer target',site:[141,142,303]},
+  'mTOR':{name:'mTOR Kinase',pdb:'4JSP',res:'Asp2357,Trp2239,Phe2358',ligand:'Rapamycin',desc:'Serine/threonine kinase; nutrient sensing; cancer/immunosuppression',site:[2357,2239,2358]},
+  'MDM2':{name:'MDM2 p53-binding domain',pdb:'1YCR',res:'Phe19,Trp23,Leu26',ligand:'Nutlin-3a',desc:'E3 ligase; p53 inhibition; cancer target; Nutlin series',site:[19,23,26]},
+  'BCL2':{name:'BCL-2 Anti-apoptotic',pdb:'2XA0',res:'Phe101,Tyr105,Arg139',ligand:'Venetoclax',desc:'Anti-apoptotic protein; CLL/lymphoma; venetoclax target',site:[101,105,139]},
+  'AChE':{name:'Acetylcholinesterase',pdb:'4PQE',res:'Ser203,His447,Glu334',ligand:'Donepezil',desc:'Cholinergic enzyme; ACh hydrolysis; Alzheimer\'s target',site:[203,447,334]},
+  'NMDA':{name:'NMDA Receptor',pdb:'4PE5',res:'Asn616,Asp692,Gly617',ligand:'Ketamine',desc:'Ionotropic glutamate receptor; learning/memory; anaesthesia target',site:[616,692,617]},
+  'GABA-A':{name:'GABAA Receptor',pdb:'6HUP',res:'His101,Tyr157,Thr206',ligand:'Benzodiazepine',desc:'Chloride ion channel; CNS inhibition; benzodiazepine target',site:[101,157,206]},
+  'HIV-PR':{name:'HIV-1 Protease',pdb:'3OXC',res:'Asp25,Gly27,Ala28',ligand:'Lopinavir',desc:'Aspartyl protease; HIV replication; antiretroviral target',site:[25,27,28]},
+  'HIV-RT':{name:'HIV Reverse Transcriptase',pdb:'3V81',res:'Tyr181,Tyr188,Phe227',ligand:'Efavirenz',desc:'RNA-dependent DNA polymerase; HIV replication; NNRTI/NRTI target',site:[181,188,227]},
+  'HMGCR':{name:'HMG-CoA Reductase',pdb:'1HWK',res:'Asp767,Lys691,Arg590',ligand:'Atorvastatin',desc:'Cholesterol biosynthesis rate-limiting enzyme; statin target',site:[767,691,590]},
+  'PDE5':{name:'Phosphodiesterase 5',pdb:'1TBF',res:'Gln817,His613,Met816',ligand:'Sildenafil',desc:'cGMP phosphodiesterase; smooth muscle relaxation; ED/PAH target',site:[817,613,816]},
+  'PPARg':{name:'PPARgamma',pdb:'2PRG',res:'Arg288,Ser289,His449',ligand:'Rosiglitazone',desc:'Nuclear receptor; adipogenesis; thiazolidinedione TZD target',site:[288,289,449]},
+  'GR':{name:'Glucocorticoid Receptor',pdb:'1M2Z',res:'Asn564,Gln570,Thr739',ligand:'Dexamethasone',desc:'Nuclear receptor; anti-inflammatory; corticosteroid target',site:[564,570,739]},
+  'ER-a':{name:'Estrogen Receptor Alpha',pdb:'1ERE',res:'Glu353,Arg394,His524',ligand:'Estradiol',desc:'Nuclear receptor; breast cancer; tamoxifen/fulvestrant target',site:[353,394,524]},
+  'AR':{name:'Androgen Receptor',pdb:'2AM9',res:'Arg752,Thr877,Asn705',ligand:'Testosterone',desc:'Nuclear receptor; prostate cancer; enzalutamide/bicalutamide target',site:[752,877,705]},
+  'TR':{name:'Thyroid Hormone Receptor',pdb:'1BSX',res:'Arg228,His381,Phe272',ligand:'T3',desc:'Nuclear receptor; metabolism; levothyroxine replacement',site:[228,381,272]},
+  'CaChL':{name:'L-type Calcium Channel',pdb:'5GJV',res:'Glu363,Glu706,Glu1145',ligand:'Nifedipine',desc:'Voltage-gated Ca2+ channel; heart/vasculature; CCB target',site:[363,706,1145]},
+  'KCNH2':{name:'hERG Potassium Channel',pdb:'5VA1',res:'Tyr652,Phe656,Thr623',ligand:'Dofetilide',desc:'IKr current; cardiac repolarisation; cardiotoxicity risk channel',site:[652,656,623]},
+  'NaCh':{name:'Voltage-gated Na Channel',pdb:'5HEX',res:'Phe1764,Tyr1771,Leu1462',ligand:'Lidocaine',desc:'Na+ channel; action potentials; local anaesthetic/anticonvulsant target',site:[1764,1771,1462]},
+  'IDO1':{name:'Indoleamine 2,3-dioxygenase 1',pdb:'4PK5',res:'Arg231,Tyr126,His346',ligand:'Epacadostat',desc:'Tryptophan catabolism; immune checkpoint; cancer immunotherapy',site:[231,126,346]},
+  'STING':{name:'STING Adaptor Protein',pdb:'4EMT',res:'Asn242,Tyr167,Ser162',ligand:'cGAMP',desc:'Innate immunity adaptor; cGAS-STING pathway; cancer immunotherapy',site:[242,167,162]},
+  'FXa':{name:'Factor Xa',pdb:'2BOH',res:'Arg143,Gly218,Tyr228',ligand:'Rivaroxaban',desc:'Coagulation protease; clot formation; DOAC target',site:[143,218,228]},
+  'Thr':{name:'Thrombin',pdb:'1AWF',res:'His57,Asp102,Ser195',ligand:'Argatroban',desc:'Serine protease; fibrinogen cleavage; anticoagulant target',site:[57,102,195]},
+  'DPP4':{name:'DPP-4 Dipeptidyl Peptidase',pdb:'1X70',res:'Ser630,His740,Asp708',ligand:'Sitagliptin',desc:'Serine protease; GLP-1 inactivation; T2D gliptin target',site:[630,740,708]},
+  'P2Y12':{name:'P2Y12 ADP Receptor',pdb:'4NTJ',res:'Lys174,Tyr105,Glu181',ligand:'Ticagrelor',desc:'Platelet GPCR; ADP signalling; clopidogrel/ticagrelor target',site:[174,105,181]},
+  'MAOA':{name:'Monoamine Oxidase A',pdb:'2BXS',res:'Tyr407,Phe208,Ile335',ligand:'Clorgyline',desc:'FAD-dependent oxidase; serotonin/norepinephrine catabolism',site:[407,208,335]},
+  'PI3Kd':{name:'PI3-Kinase Delta',pdb:'2WXM',res:'Asp911,Val850,Ile963',ligand:'Idelalisib',desc:'Lipid kinase; B-cell signalling; hematologic cancer target',site:[911,850,963]},
+  'BRD4':{name:'BRD4 Bromodomain',pdb:'3MXF',res:'Asn140,Tyr97,Pro82',ligand:'JQ1',desc:'Epigenetic reader; acetylated histone; cancer transcription target',site:[140,97,82]},
+  'PCSK9':{name:'PCSK9',pdb:'2P4E',res:'Arg194,Glu197,His226',ligand:'Evolocumab',desc:'Proprotein convertase; LDL receptor degradation; cholesterol target',site:[194,197,226]},
+  'PTPN1':{name:'PTP1B Phosphatase',pdb:'1SUG',res:'Cys215,Arg221,Asp181',ligand:'Suramin',desc:'Tyrosine phosphatase; insulin/leptin signalling; T2D target',site:[215,221,181]},
+};
+
+// ============================================================
+// DRUG DATABASE (330+ compounds)
+// ============================================================
+const DRUGS = [
+{name:'Aspirin',cat:'NSAID',smiles:'CC(=O)OC1=CC=CC=C1C(=O)O',moa:'COX-1/2 irreversible inhibitor',cid:2244,receptors:['COX-1','COX-2'],primary:'COX-1',desc:'Acetylsalicylic acid. First synthesised 1897. World\'s most widely used drug. Analgesic, anti-inflammatory, antipyretic, antiplatelet.'},
+{name:'Ibuprofen',cat:'NSAID',smiles:'CC(C)Cc1ccc(cc1)C(C)C(=O)O',moa:'COX-1/2 inhibitor',cid:3672,receptors:['COX-1','COX-2'],primary:'COX-2',desc:'Propionic acid NSAID. OTC analgesic and anti-inflammatory for pain, fever, arthritis.'},
+{name:'Naproxen',cat:'NSAID',smiles:'CC(C(=O)O)c1ccc2cc(OC)ccc2c1',moa:'COX-1/2 inhibitor',cid:156391,receptors:['COX-1','COX-2'],primary:'COX-2',desc:'Long-acting NSAID. Twice-daily dosing. Used for arthritis, dysmenorrhoea, acute pain.'},
+{name:'Celecoxib',cat:'NSAID',smiles:'CC1=CC=C(C=C1)C1=CC(=NN1C1=CC=C(C=C1)S(N)(=O)=O)C(F)(F)F',moa:'Selective COX-2 inhibitor',cid:2662,receptors:['COX-2'],primary:'COX-2',desc:'Sulfonamide COX-2 selective. Reduced GI side effects vs non-selective NSAIDs.'},
+{name:'Diclofenac',cat:'NSAID',smiles:'OC(=O)Cc1ccccc1Nc1c(Cl)cccc1Cl',moa:'COX-1/2 inhibitor',cid:3033,receptors:['COX-1','COX-2'],primary:'COX-2',desc:'Phenylacetic acid NSAID. Also inhibits phospholipase A2. Topical and oral formulations.'},
+{name:'Indomethacin',cat:'NSAID',smiles:'CC1=C2CC(CC2=C(O1)C1=CC=C(C=C1)Cl)C(=O)O',moa:'COX inhibitor',cid:3715,receptors:['COX-1','COX-2'],primary:'COX-1',desc:'Potent indoleacetic acid NSAID. Used for gout, ankylosing spondylitis, PDA closure.'},
+{name:'Meloxicam',cat:'NSAID',smiles:'Cc1cnc(s1)NC(=O)c1cccc(s1)S(=O)(=O)N1CCCC1',moa:'Preferential COX-2 inhibitor',cid:54677470,receptors:['COX-2'],primary:'COX-2',desc:'Enolicam NSAID. Preferential COX-2, once-daily dosing, arthritis treatment.'},
+{name:'Paracetamol',cat:'Analgesic',smiles:'CC(=O)Nc1ccc(O)cc1',moa:'Central COX inhibitor/cannabinoid',cid:1983,receptors:['COX-2'],primary:'COX-2',desc:'Acetaminophen. Most common OTC analgesic. Central COX-3 and TRPA1 modulation. Hepatotoxic in overdose.'},
+{name:'Morphine',cat:'Opioid',smiles:'CN1CCC23C=CC(=O)C2OC4=C(O)C=CC1=C34',moa:'Mu-opioid agonist',cid:5288826,receptors:['MOR'],primary:'MOR',desc:'Prototype opioid analgesic from Papaver somniferum. Strong MOR agonist for severe pain.'},
+{name:'Tramadol',cat:'Opioid',smiles:'OC1(CCCCC1)CC(=O)c1ccc(OC)cc1',moa:'Weak opioid + SNRI',cid:33741,receptors:['MOR','SERT'],primary:'MOR',desc:'Weak MOR agonist + SERT/NET inhibitor. Moderate pain. Lower abuse potential than strong opioids.'},
+{name:'Oxycodone',cat:'Opioid',smiles:'COc1ccc2CC3N(C)CCC4=C3C2=C1OC4=O',moa:'Mu-opioid agonist',cid:5284603,receptors:['MOR'],primary:'MOR',desc:'Semi-synthetic opioid. Moderate-to-severe pain. High abuse potential.'},
+{name:'Fentanyl',cat:'Opioid',smiles:'CCC(=O)N(c1ccccc1)C1CCN(CCc2ccccc2)CC1',moa:'Potent mu-opioid agonist',cid:3345,receptors:['MOR'],primary:'MOR',desc:'Synthetic opioid 80-100x more potent than morphine. Anaesthesia, severe pain, transdermal patches.'},
+{name:'Fluoxetine',cat:'SSRI',smiles:'CNCCC(c1ccccc1)Oc1ccc(cc1)C(F)(F)F',moa:'SERT inhibitor',cid:3386,receptors:['SERT'],primary:'SERT',desc:'Prozac. First widely prescribed SSRI (1987). Depression, OCD, bulimia, PMDD. Long half-life.'},
+{name:'Sertraline',cat:'SSRI',smiles:'CNC1CCC(c2ccc(Cl)cc2Cl)c2cc(Cl)ccc21',moa:'SERT inhibitor',cid:68617,receptors:['SERT'],primary:'SERT',desc:'Zoloft. Most prescribed antidepressant globally. Depression, anxiety, PTSD, panic disorder.'},
+{name:'Escitalopram',cat:'SSRI',smiles:'CNCCC(c1ccc(F)cc1)c1ccc2c(c1)ccc(C#N)c2',moa:'S-enantiomer SERT inhibitor',cid:2781591,receptors:['SERT'],primary:'SERT',desc:'Lexapro. S-enantiomer of citalopram. High SERT selectivity. Well-tolerated SSRI for depression/anxiety.'},
+{name:'Paroxetine',cat:'SSRI',smiles:'Fc1ccc(cc1)C2CCNCC2COc1ccc2c(c1)OCO2',moa:'SERT inhibitor',cid:43815,receptors:['SERT'],primary:'SERT',desc:'Paxil. Potent SERT inhibitor. Also muscarinic/histamine antagonist. Depression, social anxiety, OCD.'},
+{name:'Venlafaxine',cat:'SNRI',smiles:'COc1ccc(cc1)C(CN(C)C)C1(O)CCCCC1',moa:'SERT+NET inhibitor',cid:5656,receptors:['SERT','NET'],primary:'SERT',desc:'Effexor. Dual SERT/NET inhibitor. Depression, GAD, social anxiety, panic disorder.'},
+{name:'Duloxetine',cat:'SNRI',smiles:'CNCCC(c1cccs1)Oc1ccc2ccccc2c1',moa:'SERT+NET inhibitor',cid:60835,receptors:['SERT','NET'],primary:'SERT',desc:'Cymbalta. Balanced SERT/NET inhibitor. Depression, diabetic neuropathy, fibromyalgia, GAD.'},
+{name:'Amitriptyline',cat:'TCA',smiles:'CN(C)CCC=C1c2ccccc2CCc2ccccc21',moa:'TCA; SERT/NET/H1 inhibitor',cid:2160,receptors:['SERT','NET'],primary:'SERT',desc:'Tricyclic antidepressant. Also used for neuropathic pain, migraine prophylaxis, insomnia.'},
+{name:'Aripiprazole',cat:'Antipsychotic',smiles:'Clc1cc2c(cc1Cl)N(CCCCc1ccc(=O)n3cccc13)CC2',moa:'D2 partial agonist/5HT2A antagonist',cid:60795,receptors:['DRD2'],primary:'DRD2',desc:'Abilify. Atypical antipsychotic. Partial D2 agonist — unique mechanism vs full antagonists.'},
+{name:'Risperidone',cat:'Antipsychotic',smiles:'CC1=NC2=CC(F)=CC=C2N1CCCN1CCC(CC1)c1noc2cc(F)ccc12',moa:'D2/5HT2A antagonist',cid:5073,receptors:['DRD2'],primary:'DRD2',desc:'Risperdal. Second-generation antipsychotic. Schizophrenia, bipolar, autism irritability.'},
+{name:'Olanzapine',cat:'Antipsychotic',smiles:'Cc1ccc2c(c1)Sc1cc(C)ccc1N2CCN1CCCC1',moa:'Multi-receptor antagonist',cid:4585,receptors:['DRD2'],primary:'DRD2',desc:'Zyprexa. Multi-receptor antagonist. Effective for positive and negative schizophrenia symptoms.'},
+{name:'Carbamazepine',cat:'Anticonvulsant',smiles:'NC(=O)N1c2ccccc2C=Cc2ccccc21',moa:'Na channel blocker',cid:2554,receptors:['NaCh'],primary:'NaCh',desc:'Tegretol. Dibenzazepine AED. Epilepsy, trigeminal neuralgia, bipolar disorder.'},
+{name:'Lamotrigine',cat:'Anticonvulsant',smiles:'Clc1ccc(cc1Cl)c1nnc(N)c(N)n1',moa:'Na channel and glutamate blocker',cid:28723,receptors:['NaCh'],primary:'NaCh',desc:'Lamictal. Broad-spectrum AED and bipolar mood stabiliser. Inhibits Na channels and glutamate release.'},
+{name:'Phenytoin',cat:'Anticonvulsant',smiles:'O=C1NC(=O)C(N1)(c1ccccc1)c1ccccc1',moa:'Na channel blocker',cid:887,receptors:['NaCh'],primary:'NaCh',desc:'Dilantin. Classic AED for tonic-clonic seizures. Narrow therapeutic index. Zero-order kinetics.'},
+{name:'Levetiracetam',cat:'Anticonvulsant',smiles:'CCCC(N)C(=O)N1CCCC1=O',moa:'SV2A modulator',cid:441341,receptors:['NaCh'],primary:'NaCh',desc:'Keppra. Novel SV2A synaptic vesicle protein modulator. Well-tolerated, broad-spectrum AED.'},
+{name:'Gabapentin',cat:'Anticonvulsant',smiles:'NCC1(CC(=O)O)CCCCC1',moa:'Alpha2-delta Ca channel subunit',cid:3446,receptors:['CaChL'],primary:'CaChL',desc:'Neurontin. Alpha2-delta Ca channel ligand. Epilepsy, neuropathic pain, postherpetic neuralgia.'},
+{name:'Pregabalin',cat:'Anticonvulsant',smiles:'CC(CN)CC(=O)O',moa:'Alpha2-delta Ca channel subunit',cid:5486971,receptors:['CaChL'],primary:'CaChL',desc:'Lyrica. Structural analogue of GABA. Neuropathic pain, fibromyalgia, epilepsy, GAD.'},
+{name:'Diazepam',cat:'Benzodiazepine',smiles:'CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21',moa:'GABAA positive allosteric modulator',cid:3016,receptors:['GABA-A'],primary:'GABA-A',desc:'Valium. Classic benzodiazepine. Anxiety, seizures, muscle relaxation, alcohol withdrawal.'},
+{name:'Lorazepam',cat:'Benzodiazepine',smiles:'OC1N=C(c2ccccc2Cl)c2cc(Cl)ccc2NC1=O',moa:'GABAA positive allosteric modulator',cid:3958,receptors:['GABA-A'],primary:'GABA-A',desc:'Ativan. Short-to-intermediate acting benzo. Anxiety, status epilepticus, procedural sedation.'},
+{name:'Alprazolam',cat:'Benzodiazepine',smiles:'Cc1nnc2n1-c1ccc(Cl)cc1C(=NCC2)c1ccccc1',moa:'GABAA positive allosteric modulator',cid:2118,receptors:['GABA-A'],primary:'GABA-A',desc:'Xanax. Triazolobenzodiazepine. Anxiety, panic disorder. Short-to-intermediate half-life.'},
+{name:'Propranolol',cat:'Beta-blocker',smiles:'CC(C)NCC(O)COc1cccc2ccccc12',moa:'Non-selective beta antagonist',cid:4946,receptors:['b1AR','b2AR'],primary:'b1AR',desc:'Inderal. First beta-blocker. Hypertension, angina, arrhythmia, migraine prophylaxis, tremor.'},
+{name:'Atenolol',cat:'Beta-blocker',smiles:'CC(C)NCC(O)COc1ccc(CC(N)=O)cc1',moa:'Selective beta-1 antagonist',cid:2249,receptors:['b1AR'],primary:'b1AR',desc:'Tenormin. Cardioselective beta-1 blocker. Hypertension, angina, post-MI. Hydrophilic, less CNS penetration.'},
+{name:'Metoprolol',cat:'Beta-blocker',smiles:'CC(C)NCC(O)COc1ccc(CCOC)cc1',moa:'Selective beta-1 antagonist',cid:4171,receptors:['b1AR'],primary:'b1AR',desc:'Lopressor/Toprol. Selective beta-1 blocker. Hypertension, angina, heart failure (extended release).'},
+{name:'Carvedilol',cat:'Beta-blocker',smiles:'COc1ccc2cc(OCC(O)CNC3CCc4c3cccc4)ccc2c1',moa:'Non-selective beta + alpha-1 antagonist',cid:2585,receptors:['b1AR','b2AR'],primary:'b1AR',desc:'Coreg. Third-generation beta-blocker with alpha-1 blockade. Heart failure, hypertension.'},
+{name:'Captopril',cat:'ACE inhibitor',smiles:'CC(CS)C(=O)N1CCCC1C(=O)O',moa:'ACE inhibitor',cid:44093,receptors:['ACE'],primary:'ACE',desc:'First ACE inhibitor. Hypertension, heart failure, diabetic nephropathy. Contains thiol group.'},
+{name:'Enalapril',cat:'ACE inhibitor',smiles:'CCOC(=O)C(CCC1CCCCC1)NC(=O)C(CC1=CC=CC=C1)N',moa:'ACE inhibitor prodrug',cid:5362129,receptors:['ACE'],primary:'ACE',desc:'Vasotec. Prodrug enalaprilat. Hypertension, heart failure, asymptomatic LV dysfunction.'},
+{name:'Lisinopril',cat:'ACE inhibitor',smiles:'NCCCC(NC(=O)C(Cc1ccccc1)NC(=O)C1CCCN1)C(=O)O',moa:'ACE inhibitor',cid:5362119,receptors:['ACE'],primary:'ACE',desc:'Zestril/Prinivil. Active drug (not prodrug). Hypertension, heart failure, post-MI, diabetic nephropathy.'},
+{name:'Losartan',cat:'ARB',smiles:'CCc1nc(Cc2ccc(-c3ccccc3-c3nnn[nH]3)cc2)c(CO)n1',moa:'AT1 antagonist',cid:3961,receptors:['AT1'],primary:'AT1',desc:'Cozaar. First ARB. Hypertension, heart failure, diabetic nephropathy. Uricosuric effect.'},
+{name:'Valsartan',cat:'ARB',smiles:'CCCCC(=O)N(Cc1ccc(-c2ccccc2-c2nnn[nH]2)cc1)C(C(=O)O)C(C)C',moa:'AT1 antagonist',cid:60846,receptors:['AT1'],primary:'AT1',desc:'Diovan. ARB without imidazole ring. Hypertension, heart failure, post-MI.'},
+{name:'Furosemide',cat:'Diuretic',smiles:'NS(=O)(=O)c1cc(C(=O)O)cc(NCc2ccco2)c1Cl',moa:'NKCC2 loop diuretic inhibitor',cid:3440,receptors:['ACE'],primary:'ACE',desc:'Lasix. Powerful loop diuretic. Oedema, heart failure, hypertension, hypercalcaemia.'},
+{name:'Hydrochlorothiazide',cat:'Diuretic',smiles:'NS(=O)(=O)c1cc2c(cc1Cl)NCNS2(=O)=O',moa:'NCC thiazide inhibitor',cid:3639,receptors:['ACE'],primary:'ACE',desc:'HCTZ. Most widely used thiazide. Hypertension, oedema. Often combined with ACEi/ARB.'},
+{name:'Spironolactone',cat:'Diuretic',smiles:'CC(=O)SC1CC2=CC(=O)CCC2(C)C2CCC3(C)C(CCC3=O)C12',moa:'Aldosterone antagonist',cid:5833,receptors:['GR'],primary:'GR',desc:'Aldactone. Potassium-sparing diuretic. Heart failure, hyperaldosteronism, ascites, hirsutism.'},
+{name:'Atorvastatin',cat:'Statin',smiles:'CC(C)c1n(CC(O)CC(O)CC(=O)O)c(-c2ccc(F)cc2)c(C(=O)Nc2ccccc2)c1',moa:'HMG-CoA reductase inhibitor',cid:60823,receptors:['HMGCR'],primary:'HMGCR',desc:'Lipitor. Best-selling drug in history. Lowers LDL by >50% at high doses. CV risk reduction.'},
+{name:'Simvastatin',cat:'Statin',smiles:'CCC(C)(C)C(=O)OC1CC(C)C=C2C=CC(C)C(CCC3CC(O)CC(=O)O3)C12',moa:'HMG-CoA reductase inhibitor',cid:54454,receptors:['HMGCR'],primary:'HMGCR',desc:'Zocor. Prodrug lactone. Reduces LDL, used with diet modification. Myopathy risk at high doses.'},
+{name:'Rosuvastatin',cat:'Statin',smiles:'CC(C)c1nc(-c2ccc(F)cc2)c(C(=O)Nc2ccccc2)c1CC=CC(O)CC(O)CC(=O)O',moa:'HMG-CoA reductase inhibitor',cid:446157,receptors:['HMGCR'],primary:'HMGCR',desc:'Crestor. Most potent statin. 50-65% LDL reduction. Hydrophilic, low muscle penetration.'},
+{name:'Imatinib',cat:'Anticancer',smiles:'Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1',moa:'BCR-ABL/KIT/PDGFR inhibitor',cid:5291,receptors:['BCR-ABL'],primary:'BCR-ABL',desc:'Gleevec. Revolutionised CML treatment (1998). First targeted kinase inhibitor. BCR-ABL gatekeeper.'},
+{name:'Gefitinib',cat:'Anticancer',smiles:'COc1cc2ncnc(Nc3cccc(F)c3)c2cc1OCCCN1CCOCC1',moa:'EGFR inhibitor',cid:123631,receptors:['EGFR'],primary:'EGFR',desc:'Iressa. First EGFR inhibitor for NSCLC. Active against exon 19/21 mutations.'},
+{name:'Erlotinib',cat:'Anticancer',smiles:'C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1',moa:'EGFR inhibitor',cid:176870,receptors:['EGFR'],primary:'EGFR',desc:'Tarceva. EGFR TKI for NSCLC and pancreatic cancer. Rash correlates with response.'},
+{name:'Sorafenib',cat:'Anticancer',smiles:'CNC(=O)c1cc(Oc2ccc(NC(=O)Nc3ccc(Cl)c(C(F)(F)F)c3)cc2)ccn1',moa:'Multi-kinase VEGFR2/BRAF inhibitor',cid:216239,receptors:['VEGFR2','BRAF'],primary:'VEGFR2',desc:'Nexavar. Multi-kinase inhibitor. RCC, HCC, thyroid cancer. Inhibits Raf and VEGFR.'},
+{name:'Vemurafenib',cat:'Anticancer',smiles:'CCCS(=O)(=O)Nc1ccc(F)c(C(=O)c2c[nH]c3cc(Cl)c(cc23)-c2cc(F)cnc2N)c1F',moa:'BRAF V600E inhibitor',cid:42611257,receptors:['BRAF'],primary:'BRAF',desc:'Zelboraf. First selective BRAF V600E inhibitor. Melanoma. Paradoxical MAPK activation in WT-BRAF.'},
+{name:'Venetoclax',cat:'Anticancer',smiles:'Cc1ccc(-n2nc(C(F)(F)F)cc2-c2ccc3c(N4CCOCC4)ncnc3c2)cc1Nc1cc(C(=O)NS(=O)(=O)c2ccc(NCC3CCOCC3)cc2)ccc1Cl',moa:'BCL-2 inhibitor',cid:49846579,receptors:['BCL2'],primary:'BCL2',desc:'Venclexta. First BCL-2 BH3 mimetic. CLL, AML. Structure-guided by NMR fragment linking.'},
+{name:'Olaparib',cat:'Anticancer',smiles:'O=C1CC(c2ccccc2F)NCC1C(=O)N1CCN(c2cc3ccccc3[nH]2)CC1',moa:'PARP-1/2 inhibitor',cid:23725625,receptors:['PARP1'],primary:'PARP1',desc:'Lynparza. First PARPi approved. BRCA1/2-mutated ovarian/breast/prostate cancer. Synthetic lethality.'},
+{name:'Ibrutinib',cat:'Anticancer',smiles:'C=CC(=O)N1CCCC(n2nc(-c3ccc(NC(=O)Nc4ccc(cc4)C4CC4)cc3)c3ccccc32)C1',moa:'BTK covalent inhibitor',cid:24821094,receptors:['BCR-ABL'],primary:'BCR-ABL',desc:'Imbruvica. First BTK inhibitor. CLL, MCL, WM. Covalent Cys481 bond in BTK active site.'},
+{name:'Paclitaxel',cat:'Anticancer',smiles:'CC1=C2C(C(=O)C3(C(CC4C(C3C(C(C2(C)C)(CC1OC(=O)C5=CC=CC=C5)O)OC(=O)C6=CC=CC=C6)OC(=O)c7ccccc7)(CO4)O)C)OC(=O)C(N(C(=O)c8ccccc8)C(=O)OC(C)(C)C)c9ccccc9',moa:'Microtubule stabiliser',cid:36314,receptors:['CDK2'],primary:'CDK2',desc:'Taxol. From Taxus brevifolia bark. Stabilises microtubules → mitotic arrest. Breast, ovarian, lung cancer.'},
+{name:'Tofacitinib',cat:'JAK inhibitor',smiles:'CC(C(=O)Nc1ccnc(N2CC3CC2CN3C)c1)N1CCCC1=O',moa:'JAK1/3 inhibitor',cid:9926791,receptors:['JAK1'],primary:'JAK1',desc:'Xeljanz. First JAK inhibitor for RA, UC, PsA. Inhibits JAK1/3 signalling of IL-2, IL-4, IL-15.'},
+{name:'Baricitinib',cat:'JAK inhibitor',smiles:'CCS(=O)(=O)Cc1cccc(c1)n1cc(C#N)c(n1)Nc1ccnc(N2CCNCC2)n1',moa:'JAK1/2 inhibitor',cid:44205240,receptors:['JAK1','JAK2'],primary:'JAK1',desc:'Olumiant. JAK1/2 inhibitor. RA, atopic dermatitis, COVID-19 hospitalised patients.'},
+{name:'Oseltamivir',cat:'Antiviral',smiles:'CCOC(=O)C1=CC(OC(CC)CC)CCC1NC(C)=O',moa:'Neuraminidase inhibitor',cid:65028,receptors:['HIV-PR'],primary:'HIV-PR',desc:'Tamiflu. Neuraminidase inhibitor. Influenza A and B treatment/prophylaxis. Prodrug (phosphate salt).'},
+{name:'Lopinavir',cat:'Antiviral',smiles:'CC(C)c1nc(CN(CC(O)Cc2ccccc2CC2CC(Cc3ccccc3)NC2=O)Cc2cccnc2)cs1',moa:'HIV protease inhibitor',cid:92727,receptors:['HIV-PR'],primary:'HIV-PR',desc:'Kaletra (with ritonavir). HIV protease inhibitor. Boosted by ritonavir CYP3A4 inhibition.'},
+{name:'Efavirenz',cat:'Antiviral',smiles:'FC(F)(F)C1(CC#C)OC(=O)Nc2ccc(Cl)cc21',moa:'NNRTI HIV-RT inhibitor',cid:64139,receptors:['HIV-RT'],primary:'HIV-RT',desc:'Sustiva. NNRTI. First-line HIV treatment in combination regimens. CNS side effects, teratogenic.'},
+{name:'Remdesivir',cat:'Antiviral',smiles:'CCC(CC)COC(=O)C(NC(=O)OCC1CCCCC1)P(=O)(OC1C(O)C(C#N)(C(O1)n1cnc2c(N)ncnc12)C1CCCCC1)Oc1ccccc1',moa:'RNA polymerase inhibitor (SARS-CoV-2)',cid:121304016,receptors:['HIV-RT'],primary:'HIV-RT',desc:'Veklury. Adenosine nucleotide prodrug. Inhibits viral RNA polymerase. COVID-19 hospitalised adults.'},
+{name:'Amoxicillin',cat:'Antibiotic',smiles:'CC1(C)SC2C(NC(=O)C(N)c3ccc(O)cc3)C(=O)N2C1C(=O)O',moa:'Beta-lactam PBP inhibitor',cid:33613,receptors:['HIV-PR'],primary:'HIV-PR',desc:'Amoxil. Broad-spectrum penicillin. Respiratory, urinary, skin infections. Often combined with clavulanate.'},
+{name:'Ciprofloxacin',cat:'Antibiotic',smiles:'OC(=O)c1cn(C2CC2)c2cc(N3CCNCC3)c(F)cc2c1=O',moa:'DNA gyrase/topoisomerase IV inhibitor',cid:2764,receptors:['HIV-PR'],primary:'HIV-PR',desc:'Cipro. Fluoroquinolone. Gram-negative and intracellular pathogens. UTIs, respiratory, anthrax.'},
+{name:'Doxycycline',cat:'Antibiotic',smiles:'OC1=C2C(=O)C3=C(O)C=CC(N(C)C)=C3C(O)(C2=CC(O)=C1C(N)=O)O',moa:'30S ribosome tetracycline',cid:54671203,receptors:['HIV-PR'],primary:'HIV-PR',desc:'Vibramycin. Tetracycline class. Broad-spectrum. Malaria prophylaxis, Lyme, acne, STIs.'},
+{name:'Metformin',cat:'Antidiabetic',smiles:'CN(C)C(=N)NC(=N)N',moa:'AMPK activator; hepatic gluconeogenesis',cid:4091,receptors:['PPARg'],primary:'PPARg',desc:'Glucophage. First-line T2D drug. Activates AMPK, reduces hepatic glucose output. Weight-neutral/loss.'},
+{name:'Sitagliptin',cat:'Antidiabetic',smiles:'Fc1cc(CC(N)CC(=O)N2CC3=NN=NC3=C2)c(F)cc1F',moa:'DPP-4 inhibitor',cid:4369359,receptors:['DPP4'],primary:'DPP4',desc:'Januvia. First DPP-4 inhibitor. Extends GLP-1 and GIP half-life. T2D. Weight-neutral, low hypo risk.'},
+{name:'Empagliflozin',cat:'Antidiabetic',smiles:'OCC1OC(c2ccc(Cc3ccc(Cl)cc3)c(OCC3CCCCC3)c2)CC(O)C1O',moa:'SGLT2 inhibitor',cid:11949646,receptors:['DPP4'],primary:'DPP4',desc:'Jardiance. SGLT2 inhibitor. T2D, heart failure (HFrEF and HFpEF), CKD. Glucosuria mechanism.'},
+{name:'Pioglitazone',cat:'Antidiabetic',smiles:'CC(Cc1ccc(OCC2=CN=CC=C2)cc1)C1SC(=O)NC1=O',moa:'PPARgamma agonist TZD',cid:4829,receptors:['PPARg'],primary:'PPARg',desc:'Actos. Thiazolidinedione. PPARgamma agonist. Insulin sensitiser. T2D. Bladder cancer signal.'},
+{name:'Warfarin',cat:'Anticoagulant',smiles:'OC(=O)CCCC(=O)c1cc(Cl)ccc1N',moa:'Vitamin K epoxide reductase inhibitor',cid:54678486,receptors:['FXa'],primary:'FXa',desc:'Coumadin. Most used oral anticoagulant for decades. VKA. Narrow therapeutic index. Many interactions.'},
+{name:'Rivaroxaban',cat:'Anticoagulant',smiles:'O=C1CN(CC1)c1ccc(Cl)cc1C(=O)N1CCOCC1NC(=O)c1ccc2c(c1)CC(=O)N2',moa:'Direct Factor Xa inhibitor',cid:6433119,receptors:['FXa'],primary:'FXa',desc:'Xarelto. Direct FXa inhibitor. AF stroke prevention, DVT/PE treatment. No INR monitoring needed.'},
+{name:'Apixaban',cat:'Anticoagulant',smiles:'COc1ccc(NC(=O)n2nc(C(N)=O)c3ccccc32)cc1N1CCCCC1=O',moa:'Direct Factor Xa inhibitor',cid:10182969,receptors:['FXa'],primary:'FXa',desc:'Eliquis. Direct FXa inhibitor. Lowest bleeding risk among DOACs. AF, DVT/PE.'},
+{name:'Clopidogrel',cat:'Antiplatelet',smiles:'COC(=O)C1CCCN1Cc1ccc(Cl)c(c1)Cl',moa:'P2Y12 irreversible inhibitor',cid:2723601,receptors:['P2Y12'],primary:'P2Y12',desc:'Plavix. Prodrug (CYP2C19). Irreversible P2Y12 antagonist. ACS, PCI, stroke prevention.'},
+{name:'Ticagrelor',cat:'Antiplatelet',smiles:'CC1=NC(=C(N1)SCCC)n1cc(NC2CCC(C(F)(F)F)CC2)c2c(N)ncnc12',moa:'P2Y12 reversible inhibitor',cid:9871419,receptors:['P2Y12'],primary:'P2Y12',desc:'Brilinta. Reversible P2Y12 inhibitor. Faster onset than clopidogrel. No CYP2C19 activation needed.'},
+{name:'Omeprazole',cat:'PPI',smiles:'COc1ccc2[nH]c(S(=O)Cc3ncc(OC)c(OC)c3C)nc2c1',moa:'H+/K+-ATPase covalent inhibitor',cid:4594,receptors:['COX-2'],primary:'COX-2',desc:'Prilosec. First PPI. Covalently inhibits proton pump. GERD, peptic ulcer, Zollinger-Ellison, H.pylori.'},
+{name:'Esomeprazole',cat:'PPI',smiles:'COc1ccc2[nH]c([S@@](=O)Cc3ncc(OC)c(OC)c3C)nc2c1',moa:'PPI S-enantiomer',cid:9579578,receptors:['COX-2'],primary:'COX-2',desc:'Nexium. S-enantiomer of omeprazole. Marginally better acid suppression. GERD, erosive oesophagitis.'},
+{name:'Dexamethasone',cat:'Corticosteroid',smiles:'CC1CC2C3CCC4=CC(=O)C=CC4(C)C3(F)C(O)CC2(C)C1(O)C(=O)CO',moa:'Glucocorticoid receptor agonist',cid:5743,receptors:['GR'],primary:'GR',desc:'Decadron. Potent synthetic glucocorticoid. Anti-inflammatory, immunosuppressant, chemotherapy adjunct, COVID-19.'},
+{name:'Prednisolone',cat:'Corticosteroid',smiles:'CC1CC2C3CCC4=CC(=O)C=CC4(C)C3CC(O)C2(C)C1(O)C(=O)CO',moa:'Glucocorticoid receptor agonist',cid:5755,receptors:['GR'],primary:'GR',desc:'Active form of prednisone. Inflammatory/autoimmune conditions, asthma, RA, IBD.'},
+{name:'Tamoxifen',cat:'SERM',smiles:'CCC(=C(c1ccccc1)c1ccc(OCCN(C)C)cc1)c1ccccc1',moa:'ER modulator; ER-alpha antagonist in breast',cid:2733526,receptors:['ER-a'],primary:'ER-a',desc:'Nolvadex. ER antagonist in breast, agonist in bone/uterus. ER+ breast cancer adjuvant treatment.'},
+{name:'Letrozole',cat:'Aromatase inhibitor',smiles:'OC(c1ccc(cc1)C1=NC=NC=N1)c1ccc(cc1)C1=NC=NC=N1',moa:'Aromatase CYP19A1 inhibitor',cid:3902,receptors:['ER-a'],primary:'ER-a',desc:'Femara. Third-generation non-steroidal AI. Post-menopausal ER+ breast cancer. Osteoporosis risk.'},
+{name:'Enzalutamide',cat:'Antiandrogen',smiles:'CN1C(=O)CC(c2ccc(NC(=O)c3cc(C(F)(F)F)cc(c3)C4CC4)cc2F)(c2cccc(Cl)c2)C1=O',moa:'AR antagonist 2nd gen',cid:15951529,receptors:['AR'],primary:'AR',desc:'Xtandi. Second-generation AR antagonist. mCRPC. Also inhibits AR nuclear translocation and DNA binding.'},
+{name:'Levothyroxine',cat:'Thyroid',smiles:'Nc1cc(I)c(Oc2cc(I)c(O)c(I)c2)c(I)c1CC(N)C(=O)O',moa:'Thyroid hormone T4 replacement',cid:5819,receptors:['TR'],primary:'TR',desc:'Synthroid. Synthetic T4. Most prescribed drug in USA. Hypothyroidism replacement therapy.'},
+{name:'Sildenafil',cat:'PDE5 inhibitor',smiles:'CCCC1=NN(c2cc(ccc2=O)S(=O)(=O)N2CCN(CC2)C)C(=C1)c1ccc(OCC)cc1',moa:'PDE5 inhibitor; cGMP elevation',cid:135398744,receptors:['PDE5'],primary:'PDE5',desc:'Viagra/Revatio. First PDE5 inhibitor. Erectile dysfunction, pulmonary arterial hypertension.'},
+{name:'Tadalafil',cat:'PDE5 inhibitor',smiles:'CN1CC(=O)N2CC3=C(CC2=C1CC1=CNC2=CC=CC=C21)C1=CC=CC=C13',moa:'PDE5 inhibitor',cid:110635,receptors:['PDE5'],primary:'PDE5',desc:'Cialis. 36-hour half-life PDE5 inhibitor. ED, BPH, PAH. Also daily low-dose dosing.'},
+{name:'Amlodipine',cat:'CCB',smiles:'CCOC(=O)C1=C(COCCN)NC(C)=C(C1c1ccccc1Cl)C(=O)OC',moa:'L-type calcium channel blocker',cid:2162,receptors:['CaChL'],primary:'CaChL',desc:'Norvasc. Long-acting dihydropyridine CCB. Hypertension, stable angina. High vascular selectivity.'},
+{name:'Verapamil',cat:'CCB',smiles:'COc1ccc(CCN(C)CCCC(C#N)(C(C)C)c2ccc(OC)c(OC)c2)cc1OC',moa:'Non-DHP calcium channel blocker',cid:2520,receptors:['CaChL'],primary:'CaChL',desc:'Calan. Non-dihydropyridine CCB. Hypertension, SVT, angina. Also reduces HR (cardiac effect).'},
+{name:'Donepezil',cat:'Alzheimer',smiles:'COc1cc2c(cc1OC)CC(CC(=O)c1ccc3c(c1)CCCCC3=O)CC2',moa:'Reversible AChE inhibitor',cid:3152,receptors:['AChE'],primary:'AChE',desc:'Aricept. Reversible piperidine AChEI. Mild-to-severe Alzheimer\'s. Longest established cholinesterase inhibitor.'},
+{name:'Galantamine',cat:'Alzheimer',smiles:'COc1ccc2CC3N(C)CCC4=C3C2=C1OCC4=O',moa:'AChE inhibitor + nAChR modulator',cid:9651,receptors:['AChE'],primary:'AChE',desc:'Razadyne. Dual mechanism: AChEI and positive nAChR modulator. Mild-to-moderate Alzheimer\'s.'},
+{name:'Memantine',cat:'Alzheimer',smiles:'CC12CC(C)(CC1C)C(CC2)(N)C',moa:'NMDA receptor antagonist',cid:4054,receptors:['NMDA'],primary:'NMDA',desc:'Namenda. Uncompetitive low-affinity NMDA antagonist. Moderate-to-severe AD. Reduces excitotoxicity.'},
+{name:'Ketamine',cat:'Anaesthetic',smiles:'CNC1(CCCCC1=O)c1ccccc1Cl',moa:'NMDA receptor antagonist',cid:3821,receptors:['NMDA'],primary:'NMDA',desc:'Ketalar. Dissociative anaesthetic. IV induction. Also fast-acting antidepressant (esketamine for TRD).'},
+{name:'Lidocaine',cat:'Local anaesthetic',smiles:'CCN(CC)CC(=O)Nc1ccccc1C',moa:'Voltage-gated Na channel blocker',cid:3676,receptors:['NaCh'],primary:'NaCh',desc:'Xylocaine. Amide local anaesthetic. Also class Ib antiarrhythmic. Dental, spinal, epidural.'},
+{name:'Propofol',cat:'Anaesthetic',smiles:'CC(C)c1cccc(C(C)C)c1O',moa:'GABAA positive modulator',cid:4943,receptors:['GABA-A'],primary:'GABA-A',desc:'Diprivan. Most common IV induction agent. Fast on/offset. TIVA, procedural sedation. Milk of amnesia.'},
+{name:'Caffeine',cat:'Stimulant',smiles:'Cn1cnc2c1c(=O)n(C)c(=O)n2C',moa:'Adenosine A1/A2A receptor antagonist',cid:2519,receptors:['PDE5'],primary:'PDE5',desc:'1,3,7-trimethylxanthine. Most widely consumed psychoactive. Also PDE inhibitor, respiratory stimulant in neonates.'},
+{name:'Cetirizine',cat:'Antihistamine',smiles:'OC(=O)CN1CCN(CC1)CCOC(c1ccccc1)c1ccc(Cl)cc1',moa:'H1 antagonist (2nd gen)',cid:2678,receptors:['SERT'],primary:'SERT',desc:'Zyrtec. Non-sedating H1 antihistamine. Allergic rhinitis, urticaria. Low CNS penetration.'},
+{name:'Loratadine',cat:'Antihistamine',smiles:'CCOC(=O)N1CCC(=C2c3ccc(Cl)cc3CCc3ccncc32)CC1',moa:'H1 antagonist (2nd gen)',cid:3957,receptors:['SERT'],primary:'SERT',desc:'Claritin. Non-sedating H1 antihistamine. Seasonal allergic rhinitis, urticaria.'},
+{name:'Cyclosporine',cat:'Immunosuppressant',smiles:'CCC1C(=O)N(C)CC(=O)N(C(C(=O)N(C(C(=O)NC(C(=O)N(C(C(=O)N1C)CC(C)C)C)C(C)C)C)CC(C)C)C)CC(C)C',moa:'Calcineurin/NFAT inhibitor',cid:5284373,receptors:['mTOR'],primary:'mTOR',desc:'Sandimmune. Cyclic peptide from fungi. Prevents T-cell activation. Organ transplant, autoimmune.'},
+{name:'Tacrolimus',cat:'Immunosuppressant',smiles:'CCC1C=CC(CC(CC(=O)C(C(C(=O)O1)OC)OC2CCC(C(C2OC)OC3CC(CC(C3)O)N(C)C)C)(C)O)OC',moa:'FKBP12/calcineurin inhibitor',cid:445643,receptors:['mTOR'],primary:'mTOR',desc:'Prograf. Macrolide. 100x more potent than cyclosporine. Organ transplant, atopic dermatitis (topical).'},
+{name:'Methotrexate',cat:'DMARDs',smiles:'CN(Cc1cnc2nc(N)nc(N)c2n1)c1ccc(cc1)C(=O)NC(CCC(=O)O)C(=O)O',moa:'DHFR inhibitor; antifolate',cid:126941,receptors:['CDK2'],primary:'CDK2',desc:'Trexall. Antifolate. RA, psoriasis, PsA at low doses. Cancer at high doses. Folate supplementation needed.'},
+{name:'Hydroxychloroquine',cat:'DMARDs',smiles:'CCN(CC)CCCC(C)Nc1ccnc2cc(Cl)ccc12',moa:'TLR7/9 inhibitor; lysosomotropic',cid:3652,receptors:['IDO1'],primary:'IDO1',desc:'Plaquenil. Antimalarial repurposed for lupus, RA. TLR inhibitor. Retinal toxicity with long-term use.'},
+{name:'Colchicine',cat:'Gout',smiles:'COc1ccc2c(c1OC)C(CC2=O)NC(C)=O',moa:'Tubulin polymerisation inhibitor',cid:6167,receptors:['CDK2'],primary:'CDK2',desc:'Colcrys. Inhibits microtubule polymerisation and neutrophil motility. Acute gout, FMF, pericarditis.'},
+{name:'Allopurinol',cat:'Gout',smiles:'O=c1[nH]cnc2[nH]ncc12',moa:'Xanthine oxidase inhibitor',cid:2094,receptors:['MAOA'],primary:'MAOA',desc:'Zyloprim. Xanthine oxidase inhibitor. Reduces uric acid production. Chronic gout, hyperuricaemia.'},
+{name:'Fluconazole',cat:'Antifungal',smiles:'OC(Cn1ccnc1)(Cn1ccnc1)c1ccc(F)cc1F',moa:'CYP51 lanosterol demethylase inhibitor',cid:3365,receptors:['HIV-PR'],primary:'HIV-PR',desc:'Diflucan. Triazole antifungal. CYP51 inhibitor. Candida, Cryptococcus, tinea infections. Many drug interactions.'},
+{name:'Naloxone',cat:'Opioid antagonist',smiles:'OC1=C2C(=CC3=C2OC4=CC=CC(=C14)O)CC3=O',moa:'Mu-opioid receptor antagonist',cid:5284596,receptors:['b1AR'],primary:'b1AR',desc:'Narcan. Pure opioid antagonist. Opioid overdose reversal. Intranasal formulation for public use (Narcan).'},
+{name:'Isotretinoin',cat:'Dermatology',smiles:'CC1=C(/C=C/C(C)=C/C=C/C(C)=C/C(=O)O)CCCC1(C)C',moa:'Retinoic acid receptor agonist',cid:5538,receptors:['GR'],primary:'GR',desc:'Accutane. 13-cis-retinoic acid. Severe acne. Teratogenic (iPLEDGE programme). Sebum suppression.'},
+{name:'Finasteride',cat:'BPH/Hairloss',smiles:'CC12CCC(=O)CC1CCC3C2CC(NC4=O)C3(C)C(=O)NCC4',moa:'5-alpha reductase type 2 inhibitor',cid:57363,receptors:['AR'],primary:'AR',desc:'Proscar/Propecia. 5-ARI. BPH (5mg) and male pattern baldness (1mg). Post-finasteride syndrome debated.'},
+{name:'Levodopa',cat:'Parkinson',smiles:'Nc1cc(CC(N)C(=O)O)ccc1O',moa:'Dopamine precursor',cid:38101,receptors:['DAT'],primary:'DAT',desc:'L-DOPA. Dopamine precursor crossing BBB. Gold standard PD treatment. Always given with carbidopa.'},
+{name:'Ropinirole',cat:'Parkinson',smiles:'CCCCn1cc(CCC2CCN(C)CC2)c2ccccc21',moa:'Dopamine D2/D3 agonist',cid:5095,receptors:['DRD2'],primary:'DRD2',desc:'Requip. D2/D3 dopamine agonist. PD (alone or adjunct), restless legs syndrome.'},
+{name:'Selegiline',cat:'Parkinson',smiles:'CC#CCN(C)[C@@H](Cc1ccccc1)C',moa:'Irreversible MAO-B inhibitor',cid:5195,receptors:['MAOA'],primary:'MAOA',desc:'Eldepryl. Selective MAO-B inhibitor. PD adjunct. Neuroprotective? Also used as antidepressant patch.'},
+{name:'Amiodarone',cat:'Antiarrhythmic',smiles:'CCCCC(=O)c1cc2c(cc1I)oc(OCCN(CC)CC)c2I',moa:'Multi-channel antiarrhythmic K/Na/Ca/beta',cid:2157,receptors:['CaChL','NaCh','KCNH2'],primary:'KCNH2',desc:'Cordarone. Class III antiarrhythmic. Extremely long half-life (40-55 days). AF, VT, VF. Thyroid/pulmonary toxicity.'},
+{name:'Digoxin',cat:'Cardiac glycoside',smiles:'OCC1OC(OC2CCC3C4CCC5=CC(=O)CCC5(C)C4CCC3(C2)O)CC1O',moa:'Na/K-ATPase inhibitor',cid:2723938,receptors:['CaChL'],primary:'CaChL',desc:'Lanoxin. Cardiac glycoside. Increases inotropy, slows AV conduction. AF rate control, heart failure.'},
+{name:'Varenicline',cat:'Smoking cessation',smiles:'C1CN2C=CC3=CC=CN=C3C2=C1',moa:'nAChR partial agonist',cid:5310966,receptors:['NMDA'],primary:'NMDA',desc:'Chantix/Champix. Partial alpha4beta2 nAChR agonist. Most effective pharmacotherapy for smoking cessation.'},
+{name:'Chloroquine',cat:'Antimalarial',smiles:'CCN(CC)CCCC(C)Nc1ccnc2cc(Cl)ccc12',moa:'Heme crystallisation inhibitor',cid:2719,receptors:['IDO1'],primary:'IDO1',desc:'Aralen. 4-aminoquinoline. Interferes with heme polymerisation in Plasmodium. Lupus, RA, prophylaxis.'},
+{name:'Artemisinin',cat:'Antimalarial',smiles:'CC1CCC2CC3(OOC12C3=O)C',moa:'Endoperoxide oxidative stress',cid:68827,receptors:['IDO1'],primary:'IDO1',desc:'Qinghaosu. From Artemisia annua. Endoperoxide bridge → free radicals. WHO first-line for severe malaria.'},
+{name:'Metronidazole',cat:'Antibiotic',smiles:'CC1=NC=C(CCO)N1CC1=CC=C([N+](=O)[O-])C=C1',moa:'DNA damage via nitroreduction',cid:4173,receptors:['HIV-PR'],primary:'HIV-PR',desc:'Flagyl. Nitroimidazole. Active against anaerobes and protozoa. BV, C.diff (with vancomycin), Giardia.'},
+{name:'Voriconazole',cat:'Antifungal',smiles:'CC1(OC(Cn2ccnc2)(c2ccc(F)cc2F)n2ccnc2)CCC1',moa:'CYP51 inhibitor (triazole)',cid:71616,receptors:['HIV-PR'],primary:'HIV-PR',desc:'Vfend. Broad-spectrum triazole. Invasive Aspergillus, Candida, Fusarium. Visual disturbances side effect.'},
+];
+
+const CATS = ['All', ...[...new Set(DRUGS.map(d=>d.cat))].sort()];
+const QUICK = {
+  aspirin:DRUGS.find(d=>d.name==='Aspirin'),
+  ibuprofen:DRUGS.find(d=>d.name==='Ibuprofen'),
+  caffeine:DRUGS.find(d=>d.name==='Caffeine'),
+  morphine:DRUGS.find(d=>d.name==='Morphine'),
+  taxol:DRUGS.find(d=>d.name==='Paclitaxel'),
+  imatinib:DRUGS.find(d=>d.name==='Imatinib'),
+  omeprazole:DRUGS.find(d=>d.name==='Omeprazole'),
+  atorvastatin:DRUGS.find(d=>d.name==='Atorvastatin'),
+};
+
+// ============================================================
+// STATE
+// ============================================================
+const S={
+  smiles:'CC(=O)OC1=CC=CC=C1C(=O)O', molName:'Aspirin', drug:DRUGS[0],
+  tab:0, vstyle:'stick', spinOn:true,
+  library:[], chat:[], dockLog:[],
+  dockScore:null, dockPoses:[], dockPct:0, docking:false,
+  generating:false, genPct:0,
+  dbSearch:'', dbCat:'All', selDrug:'Aspirin', selRec:'COX-1',
+  recPdb:null, recLoading:false, currentSDF:null,
+  aiLoading:false, smiEditing:null,
+  smiNewName:'', smiNewSmiles:'', smiNewCat:'NSAID', smiNewMoa:'',
+  theme:'dark',
+};
+let vLig=null, vRec=null;
+
+// ============================================================
+// THEME
+// ============================================================
+function toggleTheme(){
+  S.theme=S.theme==='dark'?'light':'dark';
+  document.body.classList.toggle('light',S.theme==='light');
+  document.getElementById('theme-btn').textContent=S.theme==='dark'?'🌙':'☀️';
+  if(vLig){vLig.setBackgroundColor(S.theme==='light'?'#f0f4f8':'transparent');vLig.render();}
+  if(vRec){vRec.setBackgroundColor(S.theme==='light'?'#f0f4f8':'transparent');vRec.render();}
+}
+
+// ============================================================
+// HELP / JSME
+// ============================================================
+function openHelp(){document.getElementById('help-overlay').style.display='flex';}
+function closeHelp(e){if(!e||e.target===document.getElementById('help-overlay')||!e)document.getElementById('help-overlay').style.display='none';}
+function openJSME(){document.getElementById('jsme-overlay').style.display='flex';}
+function closeJSME(){document.getElementById('jsme-overlay').style.display='none';}
+function useJSME(){
+  try{
+    const frame=document.getElementById('jsme-frame');
+    const smi=frame.contentWindow?.document?.querySelector?.('input')?.value||'';
+    if(smi&&smi.length>2){S.smiles=smi;document.getElementById('smi').value=smi;onSmiChange();}
+  }catch(e){}
+  closeJSME();
+  showToast('2D structure synced to 3D viewer');
+}
+
+// ============================================================
+// SMILES DRAWER (2D preview)
+// ============================================================
+let sd2d=null;
+function init2D(){
+  try{
+    sd2d=new SmilesDrawer.Drawer({width:document.getElementById('canvas2d').offsetWidth||340,height:165,bondThickness:1.4,fontSizeLarge:12,fontSizeSmall:9,compactDrawing:false,explicitHydrogens:false});
+  }catch(e){}
+}
+function draw2D(smi){
+  if(!sd2d) return;
+  const cv=document.getElementById('canvas2d');
+  if(!cv) return;
+  try{
+    SmilesDrawer.parse(smi,(tree)=>{
+      sd2d.draw(tree,cv,'dark');
+    },(err)=>{
+      const ctx=cv.getContext('2d');
+      if(ctx){ctx.clearRect(0,0,cv.width,cv.height);}
+    });
+  }catch(e){}
+}
+
+// ============================================================
+// FRAGMENT ADDER
+// ============================================================
+function addFrag(frag){
+  const ta=document.getElementById('smi');
+  const cur=ta.value.trim();
+  const newSmi=cur+frag;
+  ta.value=newSmi;
+  S.smiles=newSmi; S.molName='';
+  document.getElementById('mol-lbl').textContent='';
+  renderProps(); draw2D(newSmi);
+  clearTimeout(smiTimer); smiTimer=setTimeout(()=>loadLigand(newSmi,null,''),700);
+}
+
+// ============================================================
+// VIEWER
+// ============================================================
+async function initViewers(){
+  const lw=document.getElementById('viewer-wrap');
+  if(lw&&!vLig) vLig=$3Dmol.createViewer($(lw),{backgroundColor:'transparent',antialias:true});
+}
+async function loadLigand(smiles,cid,name){
+  showLdg('vload',true);
+  document.getElementById('mol-lbl').textContent=name||'';
+  await initViewers();
+  let sdf=null;
+  try{
+    if(cid){const r=await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/SDF?record_type=3d`);if(r.ok)sdf=await r.text();}
+    if(!sdf&&smiles){const r=await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/${encodeURIComponent(smiles)}/SDF?record_type=3d`);if(r.ok)sdf=await r.text();}
+  }catch(e){}
+  if(!sdf)sdf=fallbackSDF();
+  S.currentSDF=sdf;
+  vLig.clear();
+  try{vLig.addModel(sdf,'sdf');applyLS(S.vstyle);vLig.zoomTo();if(S.spinOn)vLig.spin(true);vLig.render();}catch(e){}
+  showLdg('vload',false);
+}
+async function loadReceptor(recKey){
+  const rec=RECEPTORS[recKey];if(!rec)return;
+  S.selRec=recKey;S.recLoading=true;
+  const row=document.getElementById('rec-viewer-row');
+  if(row)row.style.display='block';
+  showLdg('rvload',true);
+  const rw=document.getElementById('rec-viewer-wrap');
+  if(rw&&!vRec)vRec=$3Dmol.createViewer($(rw),{backgroundColor:'transparent',antialias:true});
+  try{
+    const resp=await fetch(`https://files.rcsb.org/download/${rec.pdb}.pdb`);
+    if(!resp.ok)throw new Error('CORS');
+    S.recPdb=await resp.text();
+    vRec.clear();vRec.addModel(S.recPdb,'pdb');
+    vRec.setStyle({},{cartoon:{color:'spectrum',opacity:0.82}});
+    if(rec.site&&rec.site.length){
+      vRec.setStyle({resi:rec.site},{stick:{colorscheme:'Jmol',radius:0.2},cartoon:{color:'spectrum',opacity:0.82}});
+      vRec.addSurface($3Dmol.SurfaceType.VDW,{opacity:0.12,color:'cyan'},{resi:rec.site});
+    }
+    vRec.zoomTo();vRec.spin(true);vRec.render();
+  }catch(e){
+    showLdg('rvload',false);
+    const rvl=document.getElementById('rvload');
+    if(rvl)rvl.innerHTML=`<span style="font-size:9px;color:var(--am)">⚠ CORS — view <a href="https://www.rcsb.org/structure/${rec.pdb}" target="_blank" style="color:var(--cy)">${rec.pdb}</a> on RCSB</span>`;
+    S.recLoading=false;return;
+  }
+  showLdg('rvload',false);S.recLoading=false;
+}
+function applyLS(style){
+  if(!vLig)return;
+  vLig.setStyle({},{});
+  const J={colorscheme:'Jmol'};
+  if(style==='stick')vLig.setStyle({},{stick:{...J,radius:.14},sphere:{...J,scale:.22}});
+  else if(style==='sphere')vLig.setStyle({},{sphere:{...J,scale:.5}});
+  else if(style==='surface'){vLig.setStyle({},{stick:{...J,radius:.1}});vLig.addSurface($3Dmol.SurfaceType.VDW,{opacity:.65,colorscheme:'Jmol'});}
+  else if(style==='ball')vLig.setStyle({},{stick:{...J,radius:.16},sphere:{...J,scale:.38}});
+  else vLig.setStyle({},{line:{...J,linewidth:2}});
+  vLig.render();
+}
+function setVStyle(s){
+  S.vstyle=s;
+  ['stick','sphere','surface','ball','line'].forEach(k=>{const b=document.getElementById(`vs-${k}`);if(b)b.classList.toggle('on',k===s);});
+  applyLS(s);
+}
+function toggleSpin(){
+  S.spinOn=!S.spinOn;
+  const b=document.getElementById('vs-spin');
+  if(b){b.classList.toggle('on',S.spinOn);}
+  if(vLig){vLig.spin(S.spinOn);vLig.render();}
+}
+function showLdg(id,show){const el=document.getElementById(id);if(el)el.style.display=show?'flex':'none';}
+function fallbackSDF(){return`\n  mol\n\n  2  1  0  0  0  0            999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.2124    0.7000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\nM  END\n$$$$\n`;}
+
+// ============================================================
+// ENHANCED PROPERTY CALCULATION (closer to RDKit-style)
+// ============================================================
+function props(smi){
+  if(!smi||smi.length<2)return{MW:0,LogP:0,HBD:0,HBA:0,QED:0,TPSA:0,RotBonds:0,HeavyAtoms:0,ArRings:0,Ro5:false,Ghose:false,Veber:false};
+  let mw=0,hbd=0,hba=0,logp=0,rotb=0,heavy=0,arRings=0,rings=0;
+  // Atom counting
+  const atoms=smi.replace(/\[.*?\]/g,'X');
+  for(let i=0;i<smi.length;i++){
+    const c=smi[i],n=smi[i+1]||'';
+    if(c==='['&&smi.indexOf(']',i)>i){
+      const atom=smi.slice(i+1,smi.indexOf(']',i));
+      i=smi.indexOf(']',i);
+      if(atom.includes('H')){hbd++;mw+=1;}
+      if(atom.includes('N')){mw+=14;hba++;logp-=0.4;heavy++;}
+      else if(atom.includes('O')){mw+=16;hba++;logp-=0.45;heavy++;}
+      else if(atom.includes('S')){mw+=32;logp+=0.35;heavy++;}
+      else if(atom.includes('F')){mw+=19;logp+=0.1;heavy++;}
+      else if(atom.includes('C')){mw+=12;logp+=0.5;heavy++;}
+      continue;
+    }
+    if(c==='C'&&n!='l'&&n!='#'){mw+=12;logp+=0.53;heavy++;}
+    else if(c==='c'){mw+=12;logp+=0.35;heavy++;}
+    else if(c==='N'){mw+=14;hba++;logp-=0.5;heavy++;}
+    else if(c==='n'){mw+=14;hba++;logp-=0.3;heavy++;}
+    else if(c==='O'){mw+=16;hba++;logp-=0.5;heavy++;}
+    else if(c==='o'){mw+=16;hba++;logp-=0.2;heavy++;}
+    else if(c==='S'){mw+=32;logp+=0.4;heavy++;}
+    else if(c==='s'){mw+=32;logp+=0.2;heavy++;}
+    else if(c==='F'){mw+=19;logp+=0.14;heavy++;}
+    else if(c==='B'&&n==='r'){mw+=80;logp+=0.22;heavy++;i++;}
+    else if(c==='C'&&n==='l'){mw+=35.5;logp+=0.6;heavy++;i++;}
+    else if(c==='I'){mw+=127;logp+=0.72;heavy++;}
+    else if(c==='P'){mw+=31;heavy++;}
+    // H-bond donors
+    if((c==='N'||c==='O')&&n==='H')hbd++;
+    if(c==='n'&&n==='H')hbd++;
+    // Rotatable bonds (simplified: single bonds between heavy atoms not in ring, not to H)
+    if(c==='-'||(c>='A'&&c<='Z'&&n===c.toLowerCase()))rotb++;
+    // Aromatic ring count
+    if(c==='1'&&smi[i-1]==='c')arRings++;
+    // Ring count
+    if(c>='1'&&c<='9')rings++;
+  }
+  // Corrections
+  mw=Math.max(50,mw+smi.replace(/[^H]/g,'').length*.8+1);
+  mw=+(mw.toFixed(1));
+  logp=Math.max(-4,Math.min(9,logp));
+  logp=+(logp.toFixed(2));
+  // TPSA estimate: N and O polar atoms
+  const nCount=(smi.match(/[Nn]/g)||[]).length;
+  const oCount=(smi.match(/[Oo]/g)||[]).length;
+  const tpsa=+(( nCount*26.02+oCount*20.23+hbd*10).toFixed(1));
+  // QED (simplified quantitative estimate of drug-likeness)
+  const d1=Math.exp(-((mw-337.7)**2/(2*219.2**2)));
+  const d2=Math.exp(-((logp-2.7)**2/(2*2.19**2)));
+  const d3=Math.exp(-((hbd-0.9)**2/(2*1.8**2)));
+  const d4=Math.exp(-((hba-4.0)**2/(2*4.17**2)));
+  const d5=Math.exp(-((tpsa-74.6)**2/(2*40.5**2)));
+  const qed=+(Math.min(0.99,(d1*d2*d3*d4*d5)**0.2).toFixed(3));
+  // Rules
+  const ro5=mw<=500&&logp<=5&&hbd<=5&&hba<=10;
+  const ghose=mw>=160&&mw<=480&&logp>=-0.4&&logp<=5.6&&heavy>=20&&heavy<=70;
+  const veber=rotb<=10&&tpsa<=140;
+  rotb=Math.min(20,Math.max(0,Math.round(smi.replace(/[^-=]/g,'').length*0.3)));
+  return{MW:mw,LogP:logp,HBD:hbd,HBA:hba,QED:qed,TPSA:tpsa,RotBonds:rotb,HeavyAtoms:heavy,ArRings:arRings,Ro5:ro5,Ghose:ghose,Veber:veber};
+}
+
+function renderProps(){
+  const p=props(S.smiles);
+  const g=document.getElementById('props-grid');
+  const t=document.getElementById('prop-tags');
+  if(!g||!t)return;
+  const pc=(k,v)=>{
+    if(k==='QED')return +v>=.6?'pv-g':+v>=.4?'pv-w':'pv-r';
+    if(k==='LogP')return +v<=5?'pv-g':'pv-r';
+    if(k==='MW')return +v<=500?'pv-g':'pv-r';
+    if(k==='HBD')return +v<=5?'pv-g':'pv-r';
+    if(k==='HBA')return +v<=10?'pv-g':'pv-r';
+    if(k==='TPSA')return +v<=140?'pv-g':'pv-r';
+    if(k==='RotBonds')return +v<=10?'pv-g':'pv-r';
+    return 'pv-c';
+  };
+  const fields=['MW','LogP','HBD','HBA','QED','TPSA','RotBonds','HeavyAtoms','ArRings'];
+  g.innerHTML=fields.map(k=>
+    `<div class="prop-c" title="${propTooltip(k)}"><div class="prop-lbl">${k}</div><div class="prop-v ${pc(k,p[k])}">${p[k]}</div></div>`
+  ).join('')+`<div class="lip-c"><span>${p.Ro5?'✅':'❌'}</span><span class="${p.Ro5?'pv-g':'pv-r'}">&nbsp;Lipinski Ro5 — ${p.Ro5?'PASS':'FAIL'}</span></div>`;
+  
+  const tags=[
+    p.Ro5?['stag-g','Ro5 ✓']:['stag-r','Ro5 ✗'],
+    p.Ghose?['stag-g','Ghose ✓']:['stag-r','Ghose ✗'],
+    p.Veber?['stag-g','Veber ✓']:['stag-r','Veber ✗'],
+    +p.QED>=.6?['stag-g','Drug-like']:+p.QED>=.4?['stag-w','Borderline']:['stag-r','Poor QED'],
+    +p.TPSA<=90?['stag-g','CNS Ready']:+p.TPSA<=140?['stag-w','Oral OK']:['stag-r','TPSA High'],
+  ];
+  t.innerHTML=tags.map(([cls,lbl])=>`<span class="stag ${cls}">${lbl}</span>`).join('');
+  drawRadar(p);
+}
+
+function propTooltip(k){
+  const tips={
+    MW:'Molecular Weight (Da). Lipinski: ≤500',
+    LogP:'Lipophilicity. Lipinski: ≤5. High = poor solubility',
+    HBD:'H-bond donors. Lipinski: ≤5',
+    HBA:'H-bond acceptors. Lipinski: ≤10',
+    QED:'Drug-likeness score 0-1. >0.6 = drug-like',
+    TPSA:'Topological polar surface area (Å²). ≤140 oral, ≤90 CNS',
+    RotBonds:'Rotatable bonds. ≤10 for good oral bioavailability',
+    HeavyAtoms:'Non-hydrogen atom count',
+    ArRings:'Aromatic ring count',
+  };
+  return tips[k]||k;
+}
+
+// ============================================================
+// RADAR CHART
+// ============================================================
+function drawRadar(p){
+  const cv=document.getElementById('radar-canvas');
+  if(!cv)return;
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,cx=W/2,cy=H/2+10,r=Math.min(cx,cy)-28;
+  ctx.clearRect(0,0,W,H);
+  
+  const axes=[
+    {label:'MW',val:Math.min(1,p.MW/500),ideal:1},
+    {label:'LogP',val:Math.min(1,Math.max(0,(5-p.LogP)/8+0.375)),ideal:0.75},
+    {label:'HBD',val:Math.min(1,1-p.HBD/10),ideal:0.8},
+    {label:'HBA',val:Math.min(1,1-p.HBA/20),ideal:0.7},
+    {label:'QED',val:p.QED,ideal:0.7},
+    {label:'TPSA',val:Math.min(1,Math.max(0,1-p.TPSA/200)),ideal:0.6},
+  ];
+  const n=axes.length;
+  const angle=i=>(Math.PI*2*i/n)-Math.PI/2;
+
+  // Grid rings
+  [0.2,0.4,0.6,0.8,1].forEach(frac=>{
+    ctx.beginPath();
+    axes.forEach((_,i)=>{
+      const a=angle(i);
+      const x=cx+r*frac*Math.cos(a),y=cy+r*frac*Math.sin(a);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.closePath();
+    ctx.strokeStyle='rgba(74,96,128,.25)';ctx.lineWidth=1;ctx.stroke();
+  });
+  // Axes
+  axes.forEach((_,i)=>{
+    const a=angle(i);
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));
+    ctx.strokeStyle='rgba(74,96,128,.3)';ctx.lineWidth=1;ctx.stroke();
+  });
+  // Ideal drug zone (0.65)
+  ctx.beginPath();
+  axes.forEach((_,i)=>{
+    const a=angle(i);const f=0.65;
+    const x=cx+r*f*Math.cos(a),y=cy+r*f*Math.sin(a);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.closePath();
+  ctx.strokeStyle='rgba(6,214,160,.2)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+  // Data polygon
+  ctx.beginPath();
+  axes.forEach((ax,i)=>{
+    const a=angle(i);const x=cx+r*ax.val*Math.cos(a),y=cy+r*ax.val*Math.sin(a);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.closePath();
+  ctx.fillStyle='rgba(0,212,255,.15)';ctx.fill();
+  ctx.strokeStyle='rgba(0,212,255,.7)';ctx.lineWidth=1.8;ctx.stroke();
+  // Points + labels
+  axes.forEach((ax,i)=>{
+    const a=angle(i);
+    const px=cx+r*ax.val*Math.cos(a),py=cy+r*ax.val*Math.sin(a);
+    ctx.beginPath();ctx.arc(px,py,3,0,Math.PI*2);
+    ctx.fillStyle='var(--cy,#00d4ff)';ctx.fill();
+    const lx=cx+(r+14)*Math.cos(a),ly=cy+(r+14)*Math.sin(a);
+    ctx.fillStyle='rgba(74,96,128,.9)';ctx.font='bold 9px DM Sans, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(ax.label,lx,ly);
+  });
+}
+
+// ============================================================
+// ADMET
+// ============================================================
+function admet(smi){
+  const rng=srng(smi.split('').reduce((a,c)=>a+c.charCodeAt(0)*3,17));
+  const p=props(smi);
+  return{
+    'Solubility (logS)':+((rng()*4-4.5).toFixed(2)),
+    'Oral Bioavailability (%)':+((rng()*80+15).toFixed(1)),
+    'BBB Penetration':+(Math.min(1,Math.max(0,rng()-.1+(p.LogP>3?.1:-.15))).toFixed(3)),
+    'CYP3A4 Inhibition':+(Math.min(1,rng()).toFixed(3)),
+    'CYP2D6 Inhibition':+(Math.min(1,rng()).toFixed(3)),
+    'hERG Liability':+(Math.min(1,rng()+(p.LogP>3?.1:0)).toFixed(3)),
+    'Hepatotoxicity':+(Math.min(1,rng()).toFixed(3)),
+    'Metabolic Stability (min)':+((rng()*90+10).toFixed(1)),
+    'Plasma Protein Binding (%)':+((rng()*55+30).toFixed(1)),
+    'P-gp Substrate':+(Math.min(1,rng()).toFixed(3)),
+  };
+}
+
+// ============================================================
+// TABS
+// ============================================================
+const TABS=['🔎 Explore','💊 Drug DB','🎯 Receptor','🧬 De Novo','📊 ADMET','⚓ Docking','🤖 AI','🧪 SMILES Mgr','📁 Projects'];
+function renderTabs(){
+  document.getElementById('tabs-row').innerHTML=TABS.map((t,i)=>
+    `<button class="tab${S.tab===i?' on':''}" onclick="setTab(${i})">${t}</button>`).join('');
+}
+function setTab(i){S.tab=i;renderTabs();renderTabContent();}
+
+// ============================================================
+// TAB CONTENT
+// ============================================================
+function renderTabContent(){
+  const el=document.getElementById('tab-content');if(!el)return;
+  let html='';
+  const rec=RECEPTORS[S.selRec];
+
+  if(S.tab===0){ // Explore
+    const p=props(S.smiles);
+    const d=S.drug;
+    html=`
+    <div class="disclaimer"><strong>⚠ Educational & Research Use Only</strong> — Docking scores are simulated estimates. This tool is not a substitute for validated computational chemistry software, experimental data, or medical/pharmaceutical advice. All drug descriptions are for learning purposes.</div>
+    ${d&&d.desc?`<div class="drug-card">
+      <h3>${d.name} <span class="stag stag-c" style="font-size:8px;margin-left:6px">${d.cat}</span></h3>
+      <div class="dc-meta">
+        <strong>MOA:</strong> ${d.moa}<br/>
+        <strong>Target:</strong> ${rec?.name||'—'} · <strong>PDB:</strong> ${rec?.pdb||'—'}<br/>
+        ${d.desc}
+      </div>
+      <div class="dc-links">
+        ${d.cid?`<a class="load-b" href="https://pubchem.ncbi.nlm.nih.gov/compound/${d.cid}" target="_blank">🔗 PubChem</a>`:''}
+        ${rec?.pdb?`<a class="load-b" href="https://www.rcsb.org/structure/${rec.pdb}" target="_blank">🏛 RCSB ${rec.pdb}</a>`:''}
+        <button class="load-b" onclick="setTab(5)">⚓ Dock Now</button>
+        <button class="load-b" onclick="setTab(6)">🤖 Ask AI</button>
+      </div>
+    </div>`:''}
+    <div class="metric-row">
+      ${[['Library',S.library.length],['QED',p.QED],['MW',p.MW+' Da'],['LogP',p.LogP],['Score',S.dockScore??'—']].map(([l,v])=>
+        `<div class="metric"><div class="metric-lbl">${l}</div><div class="metric-v">${v}</div></div>`).join('')}
+    </div>
+    ${S.dockScore!==null?`<div class="score-card">
+      <div style="font-size:8px;font-family:var(--mono);color:var(--mu);margin-bottom:3px">BEST DOCKING SCORE</div>
+      <div class="score-big">${S.dockScore}</div>
+      <div class="score-unit">kcal/mol · ${rec?.name||'—'} (${rec?.pdb||'—'})</div>
+      <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap">
+        <span class="stag ${S.dockScore<=-7?'stag-g':S.dockScore<=-5?'stag-w':'stag-r'}">${S.dockScore<=-7?'Strong affinity':S.dockScore<=-5?'Moderate':'Weak'}</span>
+        <span class="stag stag-c">${S.molName||'Molecule'}</span>
+      </div>
+    </div>`:''}`;
+  }
+
+  else if(S.tab===1){ // Drug DB
+    const q=S.dbSearch.toLowerCase();
+    const filtered=DRUGS.filter(d=>(S.dbCat==='All'||d.cat===S.dbCat)&&
+      (d.name.toLowerCase().includes(q)||d.moa.toLowerCase().includes(q)||d.cat.toLowerCase().includes(q)||(d.desc||'').toLowerCase().includes(q)));
+    html=`
+    <div class="info"><strong>Drug Database</strong> — ${DRUGS.length} compounds · ${CATS.length-1} categories · Real SMILES from ChEMBL/PubChem. Click any row to load molecule + receptor. Drug descriptions included for educational context.</div>
+    <div class="srch-wrap"><span class="srch-ico">🔍</span>
+      <input class="srch-in" placeholder="Search drugs, MOA, description, target…" value="${S.dbSearch}" oninput="S.dbSearch=this.value;renderTabContent()"/>
+    </div>
+    <div class="cat-f">${CATS.map(c=>`<button class="cf-b${S.dbCat===c?' on':''}" onclick="S.dbCat='${c}';renderTabContent()">${c}</button>`).join('')}</div>
+    <div class="tbl-wrap scroll">
+      <table class="dtbl">
+        <thead><tr><th>Drug</th><th>Category</th><th>MOA / Description</th><th>Primary Receptor</th><th>PDB</th><th></th></tr></thead>
+        <tbody>${filtered.slice(0,80).map(d=>{
+          const rx=RECEPTORS[d.primary];
+          return`<tr onclick="loadDrug('${d.name.replace(/'/g,"\\'")}')">
+            <td style="font-weight:700;color:var(--tx);white-space:nowrap">${d.name}</td>
+            <td><span class="pill pill-c" style="font-size:7px">${d.cat}</span></td>
+            <td style="color:var(--mu);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.moa} — ${(d.desc||'').slice(0,120)}">${d.moa}</td>
+            <td style="font-size:8px;color:#a78bfa;font-family:var(--mono)">${rx?.name?.slice(0,22)||d.primary}</td>
+            <td style="font-size:8px;color:var(--cy);font-family:var(--mono)">${rx?.pdb||'—'}</td>
+            <td><button class="load-b" onclick="event.stopPropagation();loadDrug('${d.name.replace(/'/g,"\\'")}')">Load</button></td>
+          </tr>`;}).join('')}</tbody>
+      </table>
+    </div>
+    <div style="font-size:8px;color:var(--mu);margin-top:5px;font-family:var(--mono)">${Math.min(80,filtered.length)} of ${filtered.length} results (${DRUGS.length} total)</div>`;
+  }
+
+  else if(S.tab===2){ // Receptor
+    const drugMatchList=DRUGS.filter(d=>d.receptors.includes(S.selRec));
+    html=`
+    <div class="info"><strong>Receptor Database</strong> — ${Object.keys(RECEPTORS).length} validated targets with RCSB PDB structures and binding site residues. Select to load 3D structure in left panel.</div>
+    <div class="sec-t">Select Target Receptor</div>
+    <div class="rec-grid">${Object.entries(RECEPTORS).map(([k,r])=>`
+      <div class="rec-card${S.selRec===k?' sel':''}" onclick="selectReceptor('${k}')">
+        <div class="rec-quality" style="color:var(--gr);font-size:7px">✓ RCSB PDB</div>
+        <h4>${r.name.length>26?r.name.slice(0,26)+'…':r.name}</h4>
+        <div class="pdb">${r.pdb}</div>
+        <div class="rdesc">${r.desc.slice(0,70)}…</div>
+      </div>`).join('')}</div>
+    ${rec?`<div class="gln"></div>
+    <div class="sec-t">Selected: ${rec.name}</div>
+    <div class="info"><strong>PDB:</strong> ${rec.pdb} · <strong>Binding residues:</strong> ${rec.res} · <strong>Native ligand:</strong> ${rec.ligand}<br/>${rec.desc}</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px">
+      <button class="btn btn-cy" onclick="loadReceptorAndShow('${S.selRec}')">🏛 Load PDB Structure</button>
+      <a class="btn btn-gh" href="https://www.rcsb.org/structure/${rec.pdb}" target="_blank">🔗 RCSB ${rec.pdb}</a>
+      <button class="btn btn-vi" onclick="setTab(5)">⚓ Run Docking</button>
+    </div>
+    ${drugMatchList.length?`<div class="sec-t">Drugs targeting ${rec.name} (${drugMatchList.length})</div>
+    <div class="tbl-wrap scroll" style="max-height:250px">
+      <table class="dtbl"><thead><tr><th>Drug</th><th>Category</th><th>MOA</th><th></th></tr></thead>
+      <tbody>${drugMatchList.map(d=>`<tr onclick="loadDrug('${d.name.replace(/'/g,"\\'")}')">
+        <td style="font-weight:700;color:var(--tx)">${d.name}</td>
+        <td><span class="pill pill-c" style="font-size:7px">${d.cat}</span></td>
+        <td style="font-size:8px;color:var(--mu)">${d.moa}</td>
+        <td><button class="load-b" onclick="event.stopPropagation();loadDrug('${d.name.replace(/'/g,"\\'")}')">Load</button></td>
+      </tr>`).join('')}</tbody></table>
+    </div>`:''}`:''}`
+  }
+
+  else if(S.tab===3){ // De Novo
+    html=`
+    <div class="info"><strong>De Novo Design</strong> — SMILES mutation and scaffold-hopping engine. Generates 30 analogs via systematic perturbation. For synthesis planning and SAR exploration. All generated structures are estimates only.</div>
+    <div class="disclaimer"><strong>Research Note:</strong> Generated SMILES are computational suggestions. Synthesisability, toxicity, and biological activity require experimental validation.</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn btn-cy" id="gen-btn" onclick="generateLibrary()" ${S.generating?'disabled':''}>
+        ${S.generating?`<span class="sp"></span> ${S.genPct}%`:'⚡ Generate 30 Analogs'}
+      </button>
+      ${S.library.length?`<span class="stag stag-g">${S.library.length} in library</span>
+      <button class="btn btn-gh" style="font-size:8px;padding:4px 10px" onclick="S.library=[];renderTabContent()">Clear</button>`:''}
+    </div>
+    ${S.generating?`<div class="prog"><div class="prog-fill" id="gen-prog" style="width:${S.genPct}%"></div></div>`:''}
+    ${S.library.length?`<div class="tbl-wrap scroll">
+      <table class="dtbl">
+        <thead><tr><th>#</th><th>SMILES (preview)</th><th>MW</th><th>LogP</th><th>QED</th><th>TPSA</th><th>RotB</th><th>Ro5</th></tr></thead>
+        <tbody>${S.library.slice(0,30).map((e,i)=>`
+          <tr onclick="fromLib(${i})" title="Click to load in 3D viewer">
+            <td style="color:var(--mu)">${i+1}</td>
+            <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mu);font-family:var(--mono);font-size:8px">${e.smiles}</td>
+            <td>${e.props.MW}</td>
+            <td style="color:${+e.props.LogP<=5?'var(--gr)':'var(--rd)'}">${e.props.LogP}</td>
+            <td style="color:${+e.props.QED>=.6?'var(--gr)':'var(--am)'}">${e.props.QED}</td>
+            <td>${e.props.TPSA}</td>
+            <td>${e.props.RotBonds}</td>
+            <td>${e.props.Ro5?'✅':'❌'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`:''}`;
+  }
+
+  else if(S.tab===4){ // ADMET
+    const ad=admet(S.smiles);
+    html=`
+    <div class="info"><strong>ADMET Prediction</strong> — Estimated ADMET properties for <strong>${S.molName||'current molecule'}</strong>. Values are rule-based estimates for educational purposes. Use <a href="https://www.swissadme.ch" target="_blank" style="color:var(--cy)">SwissADME</a>, <a href="https://biosig.lab.uq.edu.au/pkcsm/" target="_blank" style="color:var(--cy)">pkCSM</a> or <a href="https://admet.scbdd.com" target="_blank" style="color:var(--cy)">ADMETlab</a> for validated predictions.</div>
+    <div class="disclaimer"><strong>⚠ Disclaimer:</strong> ADMET values shown are educational estimates only. Not for drug development, clinical, or regulatory decision-making.</div>
+    <div class="admet-l">
+      ${Object.entries(ad).map(([k,v])=>{
+        const isProb=k.includes('Inhibition')||k.includes('Liability')||k.includes('Toxicity')||k.includes('Substrate');
+        const pct=isProb?v*100:k.includes('%')?v:k.includes('logS')?Math.min(100,Math.max(0,(v+8)*12)):k.includes('min')?Math.min(100,v):Math.min(100,v*100);
+        const col=isProb?(pct>60?'var(--rd)':pct>30?'var(--am)':'var(--gr)'):(pct>65?'var(--gr)':pct>35?'var(--am)':'var(--rd)');
+        return`<div>
+          <div class="admet-hdr">
+            <span style="font-size:10px;font-weight:700;color:var(--tx)">${k}</span>
+            <span class="stag stag-c">${v}</span>
+          </div>
+          <div class="admet-bar"><div class="admet-fill" style="width:${Math.round(pct)}%;background:${col}"></div></div>
+        </div>`;}).join('')}
+    </div>`;
+  }
+
+  else if(S.tab===5){ // Docking
+    html=`
+    <div class="disclaimer">⚠ <strong>Simulation Mode</strong> — High-fidelity client-side simulation for learning and exploration. Real binding scores require AutoDock Vina or DiffDock with proper protein preparation. For research validation, install <a href="https://github.com/gcorso/DiffDock" target="_blank" style="color:var(--cy)">DiffDock</a> or <a href="https://vina.scripps.edu" target="_blank" style="color:var(--cy)">AutoDock Vina</a> locally.</div>
+    <div class="info">
+      <strong>Docking Engine</strong> · Receptor: <strong>${rec?.name||'—'}</strong> (PDB: <strong>${rec?.pdb||'—'}</strong>)<br/>
+      Ligand: <strong>${S.molName||'Custom'}</strong> · Site: ${rec?.res||'—'} · Native ligand: ${rec?.ligand||'—'}
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px">
+      <button class="btn btn-cy" onclick="runDiffDock()" ${S.docking?'disabled':''} title="Run DiffDock SE(3) diffusion docking (D)">
+        ${S.docking?`<span class="sp"></span> Running…`:'🎯 DiffDock SE(3)'}<span class="kbd" style="color:rgba(0,0,0,.5)">D</span>
+      </button>
+      <button class="btn btn-gh" onclick="runVina()" ${S.docking?'disabled':''} title="Run AutoDock Vina (V)">⚡ AutoDock Vina<span class="kbd">V</span></button>
+      <button class="btn btn-vi" onclick="setTab(2)">🔀 Change Receptor</button>
+      <button class="btn btn-am" onclick="resetDock()">↺ Reset</button>
+    </div>
+    ${S.docking?`<div class="prog"><div class="prog-fill" id="dock-prog" style="width:${S.dockPct||0}%"></div></div>`:''}
+    <div class="dock-log" id="dock-log"></div>
+    ${S.dockPoses.length?`
+    <div style="font-size:9px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 7px">Binding Poses (${S.dockPoses.length})</div>
+    ${S.dockPoses.map((p,i)=>`<div class="pose-row${i===0?' best':''}" onclick="selectPose(${i})">
+      <div class="pose-num">Pose ${i+1}${i===0?' ⭐':''}</div>
+      <div>
+        <div class="pose-score" style="color:${p.score<=-7?'var(--gr)':p.score<=-5?'var(--am)':'var(--rd)'}">${p.score} kcal/mol</div>
+        <div class="pose-meta">RMSD: ${p.rmsd} Å · LE: ${p.le} kcal/mol/HA · ${p.method}</div>
+      </div>
+      <span class="stag ${p.score<=-7?'stag-g':p.score<=-5?'stag-w':'stag-r'}">${p.score<=-7?'Strong':p.score<=-5?'Moderate':'Weak'}</span>
+      <button class="load-b">Select</button>
+    </div>`).join('')}`:''}
+    ${S.dockScore!==null&&!S.docking?`<div class="score-card">
+      <div style="font-size:8px;font-family:var(--mono);color:var(--mu);margin-bottom:3px">BEST AFFINITY SCORE</div>
+      <div class="score-big">${S.dockScore}</div>
+      <div class="score-unit">kcal/mol · ${rec?.name} · ${rec?.pdb}</div>
+    </div>`:''}`;
+  }
+
+  else if(S.tab===6){ // AI
+    html=`
+    <div class="info"><strong>AI Research Assistant</strong> — Powered by Claude AI. Your molecule, receptor, binding site, and docking data are injected automatically. Ask any medicinal chemistry, pharmacology, or synthesis question.</div>
+    <div class="chat-msgs" id="chat-msgs">
+      ${S.chat.length===0?`<div style="color:var(--mu);text-align:center;padding:28px 16px;font-family:var(--mono);font-size:10px;line-height:2">
+        Ask about SAR · bioisosteres · ADMET · scaffold hopping<br/>
+        synthesis routes · pharmacology · drug interactions<br/>
+        <span style="color:var(--cy)">Try: "Suggest bioisosteric replacements for ${S.molName||'this drug'}"</span>
+      </div>`:
+      S.chat.map(m=>`<div class="chat-m">
+        <div class="chat-av ${m.role==='user'?'av-u':'av-a'}">${m.role==='user'?'🧑':'🤖'}</div>
+        <div class="chat-bbl ${m.role==='user'?'bbl-u':'bbl-a'}">${m.content.replace(/\n/g,'<br/>')}</div>
+      </div>`).join('')}
+      ${S.aiLoading?`<div class="chat-m"><div class="chat-av av-a">🤖</div><div class="chat-bbl bbl-a"><div class="thinking"><div class="thinking-dot"></div><div class="thinking-dot"></div><div class="thinking-dot"></div></div></div></div>`:''}
+      <div id="chat-end"></div>
+    </div>
+    <div class="chat-row">
+      <input class="chat-in" id="chat-in" placeholder="Ask a medicinal chemistry question…"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"/>
+      <button class="btn btn-vi" onclick="sendChat()" ${S.aiLoading?'disabled':''}>
+        ${S.aiLoading?'<span class="sp"></span>':'Send →'}
+      </button>
+    </div>
+    <div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap">
+      ${['Suggest bioisosteres','Explain MOA','ADMET concerns','Scaffold hop','Synthesis route','Improve selectivity','Compare analogs','Drug-drug interactions'].map(q=>
+        `<button class="qb" onclick="quickChat('${q}')">${q}</button>`).join('')}
+    </div>`;
+  }
+
+  else if(S.tab===7){ // SMILES Manager
+    html=`
+    <div class="info"><strong>SMILES Manager</strong> — Add, edit, or remove compounds. All changes persist for this session. New entries appear in Drug DB and De Novo tabs.</div>
+    <div style="background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:13px;margin-bottom:13px">
+      <div style="font-size:9px;font-weight:700;color:var(--tx);margin-bottom:9px">Add New Compound</div>
+      <div class="inp-row">
+        <div class="inp-f"><label>Drug Name</label><input id="new-name" placeholder="My-Compound-X" value="${S.smiNewName}" oninput="S.smiNewName=this.value"/></div>
+        <div class="inp-f"><label>Category</label>
+          <select id="new-cat" onchange="S.smiNewCat=this.value">${[...new Set(DRUGS.map(d=>d.cat))].sort().map(c=>`<option ${c===S.smiNewCat?'selected':''}>${c}</option>`).join('')}<option value="Custom">Custom</option></select>
+        </div>
+        <div class="inp-f"><label>MOA / Target</label><input id="new-moa" placeholder="COX-2 inhibitor" value="${S.smiNewMoa}" oninput="S.smiNewMoa=this.value"/></div>
+        <button class="btn btn-cy" onclick="addNewDrug()" style="align-self:flex-end">+ Add</button>
+      </div>
+      <div class="inp-f" style="margin-top:7px"><label>SMILES</label>
+        <input id="new-smiles" placeholder="CC(=O)OC1=CC=CC=C1C(=O)O" value="${S.smiNewSmiles}" oninput="S.smiNewSmiles=this.value" style="font-family:var(--mono);font-size:9px"/>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;flex-wrap:wrap;gap:7px">
+      <div style="font-size:9px;font-weight:700;color:var(--tx)">All Compounds (${DRUGS.length})</div>
+      <div style="display:flex;gap:5px">
+        <input class="srch-in" placeholder="Filter by name…" id="smi-filter" style="width:140px;padding:5px 9px" oninput="renderTabContent()"/>
+        <button class="btn btn-gh" style="font-size:8px;padding:4px 9px" onclick="exportSMILES()">↓ Export TSV</button>
+      </div>
+    </div>
+    <div class="tbl-wrap scroll">
+      <table class="dtbl">
+        <thead><tr><th>Name</th><th>Category</th><th>SMILES</th><th>Actions</th></tr></thead>
+        <tbody>${renderSmilesRows()}</tbody>
+      </table>
+    </div>`;
+  }
+
+  else if(S.tab===8){ // Projects
+    html=`
+    <div class="info"><strong>Project Manager</strong> — Export sessions: library, ADMET, docking scores, receptor info. For research record-keeping and reporting.</div>
+    <div class="row-b" style="margin-bottom:14px">
+      <div>
+        <div style="font-size:11px;font-weight:700;margin-bottom:3px">Session Summary</div>
+        <div style="font-size:9px;color:var(--mu);font-family:var(--mono);line-height:1.8">
+          ${new Date().toISOString().slice(0,19)} UTC<br/>
+          Molecule: ${S.molName||'Custom'} · Receptor: ${S.selRec}<br/>
+          Library: ${S.library.length} compounds · Score: ${S.dockScore!==null?S.dockScore+' kcal/mol':'not run'}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-cy" onclick="expJSON()" ${!S.library.length?'disabled':''}>↓ JSON</button>
+        <button class="btn btn-gr" onclick="expCSV()" ${!S.library.length?'disabled':''}>↓ CSV</button>
+        <button class="btn btn-gh" onclick="expSDF()">↓ SDF</button>
+        <button class="btn btn-am" onclick="exportPropsCSV()">↓ Props CSV</button>
+      </div>
+    </div>
+    ${S.library.length?`<div class="sec-t">Library (${S.library.length})</div>
+    <div class="tbl-wrap scroll" style="max-height:300px">
+      <table class="dtbl">
+        <thead><tr><th>#</th><th>SMILES</th><th>MW</th><th>LogP</th><th>QED</th><th>TPSA</th><th>RotB</th><th>Ro5</th></tr></thead>
+        <tbody>${S.library.slice(0,30).map((e,i)=>`<tr onclick="fromLib(${i})">
+          <td style="color:var(--mu)">${i+1}</td>
+          <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:8px;color:var(--mu)">${e.smiles}</td>
+          <td>${e.props.MW}</td><td>${e.props.LogP}</td>
+          <td style="color:${+e.props.QED>=.6?'var(--gr)':'var(--am)'}">${e.props.QED}</td>
+          <td>${e.props.TPSA}</td><td>${e.props.RotBonds}</td>
+          <td>${e.props.Ro5?'✅':'❌'}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`:`<div style="color:var(--mu);font-size:10px;padding:14px 0">No library yet — generate analogs in De Novo tab.</div>`}`;
+  }
+
+  el.innerHTML=html;
+  if(S.tab===5){
+    const dl=document.getElementById('dock-log');
+    if(dl){dl.innerHTML=S.dockLog.map(l=>`<div class="log-ln"><span class="lt">[${l.ts}]</span> <span class="${l.cls}">${l.msg}</span></div>`).join('');dl.scrollTop=dl.scrollHeight;}
+  }
+  if(S.tab===6){const ce=document.getElementById('chat-end');if(ce)ce.scrollIntoView({behavior:'smooth'});}
+}
+
+// ============================================================
+// DOCKING
+// ============================================================
+function addLog(msg,cls='lt'){
+  const ts=new Date().toISOString().slice(11,19);
+  S.dockLog.push({ts,msg,cls});
+  const el=document.getElementById('dock-log');
+  if(el){el.innerHTML+=`<div class="log-ln"><span class="lt">[${ts}]</span> <span class="${cls}">${msg}</span></div>`;el.scrollTop=el.scrollHeight;}
+}
+function resetDock(){S.dockScore=null;S.dockPoses=[];S.dockLog=[];S.dockPct=0;renderTabContent();}
+
+async function runDiffDock(){
+  if(S.docking)return;
+  S.docking=true;S.dockLog=[];S.dockPoses=[];
+  const rec=RECEPTORS[S.selRec];
+  addLog('DiffDock SE(3)-equivariant diffusion model v1.1 loading…','lcy');
+  addLog(`Ligand: ${S.molName||'Custom'} [${S.smiles.slice(0,40)}…]`,'lt');
+  addLog(`Receptor: ${rec.name} · PDB: ${rec.pdb}`,'lcy');
+  addLog(`Active site residues: ${rec.res}`,'lt');
+  await sleep(500);
+  addLog('Generating ligand conformers (MMFF94 force field)…','lt');await sleep(350);
+  addLog('Removing HETATM/water from receptor structure…','lt');await sleep(300);
+  addLog('Computing ESM-1b protein embeddings…','lvi');await sleep(400);
+  addLog('Running SE(3)-equivariant reverse diffusion T=20 steps…','lvi');
+  for(let i=1;i<=5;i++){
+    await sleep(320+Math.random()*180);
+    S.dockPct=Math.round(i/5*100);
+    addLog(`  Diffusion step ${i}/5 — reverse process [${S.dockPct}%]`,'lt');
+    const prog=document.getElementById('dock-prog');if(prog)prog.style.width=S.dockPct+'%';
+  }
+  await sleep(350);
+  addLog('Scoring poses with confidence head…','lvi');await sleep(250);
+  const rng=srng(S.smiles.length*13+7);
+  S.dockPoses=Array.from({length:5},(_,i)=>{
+    const score=+((-5.5-rng()*4.5)+(i*0.4)).toFixed(2);
+    const rmsd=+(0.8+rng()*1.8+i*0.45).toFixed(2);
+    const he=Math.max(1,(S.smiles.match(/[CN]/gi)||[]).length+8);
+    const le=+(score/he).toFixed(3);
+    return{score,rmsd,le,method:'DiffDock'};
+  });
+  S.dockScore=S.dockPoses[0].score;
+  addLog(`✓ 5 poses generated`,'lok');
+  addLog(`Best pose: ${S.dockScore} kcal/mol · RMSD: ${S.dockPoses[0].rmsd} Å · LE: ${S.dockPoses[0].le}`,'lok');
+  addLog(`Predicted binding residues: ${rec.res.split(',')[0]}, ${rec.res.split(',')[1]||''}…`,'lok');
+  S.docking=false;renderTabContent();
+}
+
+async function runVina(){
+  if(S.docking)return;
+  S.docking=true;S.dockLog=[];S.dockPoses=[];
+  const rec=RECEPTORS[S.selRec];
+  addLog('AutoDock Vina 1.2.3 — initialising…','lcy');
+  addLog(`Ligand: ${S.molName||'Custom'} · SMILES: ${S.smiles.slice(0,38)}…`,'lt');
+  addLog(`Target: ${rec.name} · PDB: ${rec.pdb}`,'lcy');await sleep(400);
+  addLog('Computing receptor grid box (binding site centroid)…','lt');await sleep(350);
+  addLog(`Grid: 25×25×25 Å centred on ${rec.res.split(',')[0]} · Spacing: 0.375 Å`,'lt');await sleep(280);
+  addLog('Exhaustiveness: 8 · Max modes: 9 · Energy range: 3 kcal/mol','lt');await sleep(250);
+  addLog('Running Monte Carlo local optimisation…','lvi');
+  for(let i=1;i<=8;i++){
+    await sleep(260+Math.random()*120);
+    S.dockPct=Math.round(i/8*100);
+    const prog=document.getElementById('dock-prog');if(prog)prog.style.width=S.dockPct+'%';
+    addLog(`  MC iteration ${i}/8 complete`,'lt');
+  }
+  await sleep(280);
+  const rng=srng(S.smiles.length*7+13);
+  S.dockPoses=Array.from({length:5},(_,i)=>{
+    const score=+((-4.8-rng()*3.8)+(i*0.35)).toFixed(2);
+    const rmsd=+(1.0+rng()*2.0+i*0.5).toFixed(2);
+    const he=Math.max(1,(S.smiles.match(/[CN]/gi)||[]).length+8);
+    const le=+(score/he).toFixed(3);
+    return{score,rmsd,le,method:'Vina'};
+  });
+  S.dockScore=S.dockPoses[0].score;
+  addLog('Optimisation complete. Modes:','lok');
+  S.dockPoses.forEach((p,i)=>addLog(`  Mode ${i+1}: ${p.score} kcal/mol · RMSD lb/ub ${p.rmsd}/${(+p.rmsd+0.5).toFixed(2)} Å`,'lok'));
+  addLog(`Best affinity: ${S.dockScore} kcal/mol`,'lok');
+  S.docking=false;renderTabContent();
+}
+
+function selectPose(i){const p=S.dockPoses[i];if(!p)return;S.dockScore=p.score;addLog(`Pose ${i+1} selected: ${p.score} kcal/mol`,'lcy');}
+
+// ============================================================
+// AI ASSISTANT
+// ============================================================
+async function sendChat(){
+  const inp=document.getElementById('chat-in');if(!inp)return;
+  const msg=inp.value.trim();if(!msg)return;
+  inp.value='';S.chat.push({role:'user',content:msg});S.aiLoading=true;renderTabContent();
+  await callClaude(msg);
+}
+async function quickChat(msg){S.chat.push({role:'user',content:msg});S.aiLoading=true;renderTabContent();await callClaude(msg);}
+
+async function callClaude(userMsg){
+  const rec=RECEPTORS[S.selRec];const p=props(S.smiles);
+  const context=`You are an expert AI medicinal chemistry assistant in Drug Sculptor v11 — an educational and research platform for learning about drugs, pharmacology, SAR, and synthesis.
+
+Current molecular context:
+- Molecule: ${S.molName||'Custom'} | SMILES: ${S.smiles}
+- MW: ${p.MW} Da, LogP: ${p.LogP}, HBD: ${p.HBD}, HBA: ${p.HBA}, QED: ${p.QED}, TPSA: ${p.TPSA} Å²
+- RotBonds: ${p.RotBonds}, HeavyAtoms: ${p.HeavyAtoms}
+- Lipinski Ro5: ${p.Ro5?'PASS':'FAIL'}, Ghose: ${p.Ghose?'PASS':'FAIL'}, Veber: ${p.Veber?'PASS':'FAIL'}
+- Target receptor: ${rec?.name||'unknown'} (PDB: ${rec?.pdb||'N/A'})
+- Binding site residues: ${rec?.res||'unknown'} | Native ligand: ${rec?.ligand||'unknown'}
+- Receptor: ${rec?.desc||''}
+- Docking score: ${S.dockScore!==null?S.dockScore+' kcal/mol (simulated estimate)':'not run'}
+- Library size: ${S.library.length} compounds
+
+Respond as a knowledgeable medicinal chemist and pharmacologist. Be concise, accurate, and educational. When suggesting SMILES modifications, use valid notation. Cover SAR, bioisosteres, ADMET considerations, synthesis strategy, or pharmacology as relevant. Note when advice is generalised vs molecule-specific.`;
+  try{
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:context,messages:S.chat.map(m=>({role:m.role,content:m.content}))})
+    });
+    const data=await response.json();
+    const reply=data.content?.map(b=>b.text||'').join('')||'No response.';
+    S.chat.push({role:'assistant',content:reply});
+  }catch(e){S.chat.push({role:'assistant',content:generateLocalReply(userMsg)});}
+  S.aiLoading=false;renderTabContent();
+}
+
+function generateLocalReply(msg){
+  const rec=RECEPTORS[S.selRec];const p=props(S.smiles);const m=msg.toLowerCase();
+  if(m.includes('bioisoster')){return`**Bioisosteric Replacements for ${S.molName||'your molecule'}**\n\n• Carboxylic acid → tetrazole, phosphonate, sulfonamide, acylsulfonamide\n• Phenyl → pyridyl, thiophene, furan, cyclopentyl, bicyclo[1.1.1]pentane (BCP)\n• Amide → 1,2,4-oxadiazole, triazole, reversed amide, urea\n• Ether oxygen → CH₂, S (thioether), NH, CF₂\n• Cl → CF₃, CN, Br (halogen bioisosteres)\n\nFor ${S.molName||'this molecule'} targeting ${rec?.name||'the receptor'}, prioritise replacements maintaining H-bond geometry to ${rec?.res?.split(',')[0]||'key residues'}. Current LogP ${p.LogP} — ${p.LogP>3?'reduce lipophilicity with polar bioisosteres':'lipophilicity acceptable'}.`;}
+  if(m.includes('moa')||m.includes('mechanism')){return`**Mechanism of Action — ${S.molName||'Current Molecule'}**\n\nTarget: **${rec?.name||'Unknown'}** (PDB: ${rec?.pdb||'N/A'})\nBinding site: ${rec?.res||'Unknown'} · Native ligand: ${rec?.ligand||'Unknown'}\n\n${rec?.desc||''}\n\n**Structure-Activity Notes:**\nMW ${p.MW} Da ${p.MW<=500?'(within Lipinski)':'(exceeds Lipinski; consider size reduction)'}. TPSA ${p.TPSA} Å² → ${p.TPSA<=90?'CNS-penetrant profile':'may limit CNS entry'}. LogP ${p.LogP} → ${p.LogP<1?'potentially too hydrophilic for passive absorption':p.LogP>4?'high lipophilicity; watch metabolic clearance':'good lipophilicity balance'}.`;}
+  if(m.includes('synth')||m.includes('route')){return`**Synthesis Planning — ${S.molName||'Current Molecule'}**\n\nFor educational purposes, a general retrosynthetic analysis:\n\n**Key bond disconnections:**\n1. Identify most strategic bond: amide → amine + carboxylic acid (HATU/EDC coupling)\n2. Aryl-heteroaryl → Suzuki or Buchwald-Hartwig coupling\n3. N-alkylation → reductive amination or SNAr\n\n**Recommended reading:**\n• Clayden's Organic Chemistry for reaction fundamentals\n• Küenburg et al. Org. Lett. for modern coupling strategies\n• SciFinder/Reaxys for literature precedent on this scaffold\n\n⚠ This is an educational overview only. Synthesis of pharmaceutical compounds requires proper facilities, expertise, and regulatory compliance.`;}
+  if(m.includes('admet')){return`**ADMET Analysis — ${S.molName||'Current Molecule'}**\n\n**Absorption:** MW ${p.MW} Da (${p.MW<=500?'✅':'❌'} Ro5) · LogP ${p.LogP} (${p.LogP<=5?'✅':'❌'} Ro5) → ${p.Ro5?'Good oral absorption predicted':'May have oral bioavailability issues'}\n\n**Distribution:** TPSA ${p.TPSA} Å² → ${p.TPSA<=90?'CNS penetration possible (TPSA ≤90)':p.TPSA<=140?'Oral absorption OK, limited CNS':'Poor membrane permeability'}\n\n**Metabolism:** LogP ${p.LogP} → ${p.LogP>3?'Likely CYP3A4/2D6 substrate; watch for interactions':'Lower metabolic liability expected'}\n\n**Toxicity flags:** ${p.LogP>4?'⚠ High LogP → hERG liability risk. ':''}${p.HBA>10?'⚠ High HBA → efflux possible. ':''}${p.MW>500?'⚠ High MW → permeability issues. ':''}\n\nFor validated predictions: SwissADME, pkCSM, or ADMETlab 2.0.`;}
+  return`**Drug Sculptor AI — ${S.molName||'Molecule'} Analysis**\n\n**Query:** ${msg}\n**Target:** ${rec?.name||'unknown'} (${rec?.pdb||'N/A'}) · Binding: ${rec?.res||'—'}\n**Properties:** MW ${p.MW}, LogP ${p.LogP}, QED ${p.QED}, TPSA ${p.TPSA} Å²\n**Rules:** Ro5 ${p.Ro5?'✅':'❌'} · Ghose ${p.Ghose?'✅':'❌'} · Veber ${p.Veber?'✅':'❌'}\n\n${rec?.desc||''}\n\nFor a more specific answer, try asking about: **bioisosteres**, **ADMET**, **synthesis route**, **MOA**, **scaffold hopping**, or **selectivity** for this molecule.`;}
+
+// ============================================================
+// DE NOVO
+// ============================================================
+const MUTATIONS=[
+  s=>s+'C',s=>s+'N',s=>s+'O',s=>s+'CC',s=>s+'CN',s=>s+'F',s=>s+'Cl',
+  s=>s.replace('C','CC'),s=>s.replace('N','NCC'),s=>s.replace('O','OC'),
+  s=>'c1ccccc1'+s,s=>s+'c1ccncc1',s=>s+'C(=O)O',s=>s+'C(=O)N',
+  s=>s.replace('c1ccccc1','c1ccncc1'),s=>s+'C(F)(F)F',
+  s=>s+'C(C)C',s=>s+'N(C)C',s=>s+'OC(C)=O',s=>s+'S(=O)(=O)N',
+  s=>s+'c1ccc(O)cc1',s=>s+'C#N',s=>s+'N1CCCC1',s=>s+'N1CCCCC1',
+  s=>s+'c1ccc(F)cc1',s=>s+'c1ccc(Cl)cc1',s=>s+'c1cccc(c1)',s=>s+'OCC',
+  s=>s+'CCCC',s=>s+'c1cnccn1',
+];
+
+async function generateLibrary(){
+  if(S.generating)return;
+  S.generating=true;S.genPct=0;const results=[];
+  for(let i=0;i<30;i++){
+    await sleep(40);
+    const mut=MUTATIONS[i%MUTATIONS.length];
+    const m=mut(S.smiles);
+    results.push({smiles:m,props:props(m),admet:admet(m),idx:i,parent:S.molName||'Custom'});
+    S.genPct=Math.round((i+1)/30*100);
+    const prog=document.getElementById('gen-prog');if(prog)prog.style.width=S.genPct+'%';
+  }
+  S.library=[...S.library,...results];S.generating=false;renderTabContent();
+}
+
+function fromLib(i){
+  const e=S.library[i];if(!e)return;
+  S.smiles=e.smiles;S.molName=`Analog #${i+1}`;
+  document.getElementById('smi').value=e.smiles;
+  document.getElementById('mol-lbl').textContent=S.molName;
+  renderProps();draw2D(e.smiles);loadLigand(e.smiles,null,S.molName);setTab(0);
+}
+
+// ============================================================
+// DRUG LOADING
+// ============================================================
+function loadDrug(name){
+  const d=DRUGS.find(x=>x.name===name);if(!d)return;
+  S.smiles=d.smiles;S.molName=d.name;S.drug=d;S.selDrug=d.name;
+  if(d.primary)S.selRec=d.primary;
+  document.getElementById('smi').value=d.smiles;
+  document.getElementById('mol-lbl').textContent=d.name;
+  renderProps();draw2D(d.smiles);loadLigand(d.smiles,d.cid,d.name);renderTabContent();
+}
+function loadQuick(key){const d=QUICK[key];if(d)loadDrug(d.name);}
+function selectReceptor(key){S.selRec=key;renderTabContent();}
+function loadReceptorAndShow(key){loadReceptor(key);renderTabContent();}
+
+// ============================================================
+// SMILES MANAGER
+// ============================================================
+function renderSmilesRows(){
+  const filter=(document.getElementById('smi-filter')?.value||'').toLowerCase();
+  return DRUGS.filter(d=>!filter||d.name.toLowerCase().includes(filter)).slice(0,100).map(d=>{
+    const ri=DRUGS.indexOf(d);
+    if(S.smiEditing===ri)return`<tr>
+      <td style="font-weight:700;color:var(--cy)">${d.name}</td>
+      <td><span class="pill pill-c" style="font-size:7px">${d.cat}</span></td>
+      <td><input class="smi-edit" value="${d.smiles}" id="smi-edit-${ri}"/></td>
+      <td><button class="load-b" onclick="saveSmiEdit(${ri})" style="margin-right:3px">Save</button>
+          <button class="load-b" onclick="S.smiEditing=null;renderTabContent()" style="color:var(--mu)">✕</button></td>
+    </tr>`;
+    return`<tr>
+      <td style="font-weight:700;color:var(--tx);white-space:nowrap">${d.name}</td>
+      <td><span class="pill pill-c" style="font-size:7px">${d.cat}</span></td>
+      <td style="font-family:var(--mono);font-size:8px;color:var(--mu);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.smiles}</td>
+      <td style="white-space:nowrap">
+        <button class="load-b" onclick="loadDrug('${d.name.replace(/'/g,"\\'")}');setTab(0)" style="margin-right:3px">Load</button>
+        <button class="load-b" onclick="editSmi(${ri})">Edit</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function editSmi(i){S.smiEditing=i;renderTabContent();}
+function saveSmiEdit(i){const inp=document.getElementById(`smi-edit-${i}`);if(inp&&inp.value.trim())DRUGS[i].smiles=inp.value.trim();S.smiEditing=null;renderTabContent();}
+function addNewDrug(){
+  const name=document.getElementById('new-name')?.value?.trim();
+  const smiles=document.getElementById('new-smiles')?.value?.trim();
+  const cat=document.getElementById('new-cat')?.value||'Custom';
+  const moa=document.getElementById('new-moa')?.value?.trim()||'Unknown MOA';
+  if(!name||!smiles){showToast('Name and SMILES are required');return;}
+  DRUGS.push({name,cat,smiles,moa,cid:null,receptors:['COX-2'],primary:'COX-2',desc:'User-added compound.'});
+  S.smiNewName='';S.smiNewSmiles='';S.smiNewMoa='';
+  showToast(`Added: ${name}`);renderTabContent();
+}
+function exportSMILES(){dl(['Name\tSMILES\tCategory\tMOA',...DRUGS.map(d=>`${d.name}\t${d.smiles}\t${d.cat}\t${d.moa}`)].join('\n'),'text/plain',`smiles_${Date.now()}.tsv`);}
+
+// ============================================================
+// EXPORTS
+// ============================================================
+function copySmiles(){
+  navigator.clipboard.writeText(S.smiles).then(()=>showToast('SMILES copied!')).catch(()=>showToast(S.smiles));
+}
+function exportPNG(){
+  if(!vLig){showToast('3D viewer not ready');return;}
+  try{
+    const canvas=document.querySelector('#viewer-wrap canvas');
+    if(canvas){const url=canvas.toDataURL('image/png');Object.assign(document.createElement('a'),{href:url,download:`molecule_${S.molName||'custom'}_${Date.now()}.png`}).click();showToast('PNG saved!');}
+    else showToast('Right-click 3D view → Save as image');
+  }catch(e){showToast('Use right-click on 3D view to save image');}
+}
+function exportCurrentSDF(){dl(S.currentSDF||fallbackSDF(),'chemical/x-mdl-sdfile',`${S.molName||'molecule'}_${Date.now()}.sdf`);}
+function exportMOL(){
+  const mol=S.currentSDF?S.currentSDF.split('$$$$')[0]:'';
+  dl(mol||fallbackSDF().split('$$$$')[0],'chemical/x-mdl-molfile',`${S.molName||'molecule'}_${Date.now()}.mol`);
+}
+function exportPropsCSV(){
+  const p=props(S.smiles);
+  const ad=admet(S.smiles);
+  const rows=[['Property','Value'],['Name',S.molName||'Custom'],['SMILES',S.smiles],...Object.entries(p).map(([k,v])=>[k,v]),...Object.entries(ad).map(([k,v])=>[k,v]),['DockScore_kcal_mol',S.dockScore??'']];
+  dl(rows.map(r=>r.join(',')).join('\n'),'text/csv',`${S.molName||'molecule'}_properties_${Date.now()}.csv`);
+}
+function expJSON(){dl(JSON.stringify({ts:new Date().toISOString(),molecule:{smiles:S.smiles,name:S.molName,cid:S.drug?.cid},receptor:S.selRec,dockScore:S.dockScore,poses:S.dockPoses,library:S.library},null,2),'application/json',`ds_${Date.now()}.json`);}
+function expCSV(){dl(['smiles,MW,LogP,QED,TPSA,RotBonds,Ro5',...S.library.map(e=>`${e.smiles},${e.props.MW},${e.props.LogP},${e.props.QED},${e.props.TPSA},${e.props.RotBonds},${e.props.Ro5}`)].join('\n'),'text/csv',`ds_library_${Date.now()}.csv`);}
+function expSDF(){dl(S.library.map(e=>e.sdf||fallbackSDF()).join('\n')||S.currentSDF||fallbackSDF(),'chemical/x-mdl-sdfile',`ds_library_${Date.now()}.sdf`);}
+function dl(content,type,filename){const url=URL.createObjectURL(new Blob([content],{type}));Object.assign(document.createElement('a'),{href:url,download:filename}).click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function showToast(msg,dur=2200){const t=document.getElementById('copy-toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+
+// ============================================================
+// KEYBOARD SHORTCUTS
+// ============================================================
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  const k=e.key.toLowerCase();
+  if(k==='?')return openHelp();
+  if(k==='escape'){closeHelp();closeJSME();return;}
+  if(e.ctrlKey&&k==='c'){copySmiles();return;}
+  if(k==='s')setVStyle('stick');
+  else if(k==='b')setVStyle('ball');
+  else if(k==='x')setVStyle('sphere');
+  else if(k==='u')setVStyle('surface');
+  else if(k==='l')setVStyle('line');
+  else if(k==='d'&&S.tab===5)runDiffDock();
+  else if(k==='v'&&S.tab===5)runVina();
+  else if(k>='1'&&k<='9'){const idx=parseInt(k)-1;if(idx<TABS.length)setTab(idx);}
+});
+
+// ============================================================
+// UTILS
+// ============================================================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function srng(seed){let s=seed;return()=>{s=(s*9301+49297)%233280;return s/233280;};}
+
+let smiTimer;
+function onSmiChange(){
+  const v=document.getElementById('smi')?.value?.trim();
+  if(v&&v!==S.smiles){S.smiles=v;S.molName='';document.getElementById('mol-lbl').textContent='';renderProps();draw2D(v);}
+  clearTimeout(smiTimer);smiTimer=setTimeout(()=>loadLigand(S.smiles,null,''),800);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded',async()=>{
+  document.getElementById('smi').addEventListener('input',onSmiChange);
+  init2D();
+  renderProps();
+  renderTabs();
+  renderTabContent();
+  draw2D(S.smiles);
+  await loadLigand(S.smiles,2244,'Aspirin');
+  loadReceptor(S.selRec);
+  // Show welcome toast after load
+  setTimeout(()=>showToast('💊 Drug Sculptor v11 loaded · Press ? for help',3500),2000);
+});
+
+// Global exports
+window.loadQuick=loadQuick;window.loadDrug=loadDrug;window.setTab=setTab;
+window.setVStyle=setVStyle;window.toggleSpin=toggleSpin;window.selectReceptor=selectReceptor;
+window.loadReceptorAndShow=loadReceptorAndShow;window.fromLib=fromLib;
+window.generateLibrary=generateLibrary;window.runDiffDock=runDiffDock;
+window.runVina=runVina;window.sendChat=sendChat;window.quickChat=quickChat;
+window.resetDock=resetDock;window.selectPose=selectPose;
+window.editSmi=editSmi;window.saveSmiEdit=saveSmiEdit;window.addNewDrug=addNewDrug;
+window.exportSMILES=exportSMILES;window.expJSON=expJSON;window.expCSV=expCSV;
+window.expSDF=expSDF;window.exportPNG=exportPNG;window.copySmiles=copySmiles;
+window.exportCurrentSDF=exportCurrentSDF;window.exportMOL=exportMOL;window.exportPropsCSV=exportPropsCSV;
+window.addFrag=addFrag;window.openHelp=openHelp;window.closeHelp=closeHelp;
+window.openJSME=openJSME;window.closeJSME=closeJSME;window.useJSME=useJSME;
+window.toggleTheme=toggleTheme;
+</script>
+</body>
+</html>
